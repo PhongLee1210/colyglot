@@ -5,6 +5,29 @@ import { defineConfig, globalIgnores } from "eslint/config";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    files: ["**/*.{ts,tsx}"],
+    ignores: ["lib/db/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/lib/db",
+              message:
+                "The data layer is internal — import from '@/lib/db/repositories' instead.",
+            },
+            {
+              name: "@/lib/db/index",
+              message:
+                "The data layer is internal — import from '@/lib/db/repositories' instead.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
