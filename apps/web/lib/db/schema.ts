@@ -55,7 +55,7 @@ export const decks = pgTable(
     name: text("name").notNull(),
     sourceLang: text("source_lang").notNull().default(DEFAULT_SOURCE_LANG),
     targetLang: text("target_lang").notNull().default(DEFAULT_TARGET_LANG),
-    userId: text("user_id").notNull().default(LOCAL_USER_ID),
+    userId: text("user_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -109,14 +109,19 @@ export const cardSchedules = pgTable(
   (table) => [index("card_schedules_due_at_idx").on(table.dueAt)]
 );
 
-export const studySessions = pgTable("study_sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  startedAt: timestamp("started_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  endedAt: timestamp("ended_at", { withTimezone: true }),
-  cardsReviewed: integer("cards_reviewed").notNull().default(0),
-});
+export const studySessions = pgTable(
+  "study_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    cardsReviewed: integer("cards_reviewed").notNull().default(0),
+  },
+  (table) => [index("study_sessions_user_id_idx").on(table.userId)]
+);
 
 export const reviewLogs = pgTable(
   "review_logs",

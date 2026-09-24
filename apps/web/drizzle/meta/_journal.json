@@ -8,6 +8,13 @@
       "when": 1790091121205,
       "tag": "0000_mysterious_apocalypse",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790266332190,
+      "tag": "0001_condemned_magdalene",
+      "breakpoints": true
     }
   ]
 }
