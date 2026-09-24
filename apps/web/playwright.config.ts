@@ -16,6 +16,26 @@ export default defineConfig({
     port: 3117,
     reuseExistingServer: true,
     timeout: 30_000,
+    env: {
+      E2E_SIGNIN_TOKEN: "colyglot-e2e",
+    },
   },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  projects: [
+    {
+      name: "setup",
+      testMatch: /auth-setup\.ts/,
+    },
+    {
+      name: "signed-in",
+      dependencies: ["setup"],
+      use: {
+        storageState: "e2e/.auth/user.json",
+      },
+      testIgnore: [/auth-setup\.ts/, /auth\.spec\.ts/],
+    },
+    {
+      name: "anonymous",
+      testMatch: /auth\.spec\.ts/,
+    },
+  ],
 });

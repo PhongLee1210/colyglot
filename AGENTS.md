@@ -80,7 +80,7 @@ rtk run -- bun run test        # run and track tests
 - NEVER modify generated files (`.next/`, `next-env.d.ts`).
 - All data access goes through the Drizzle repositories in `apps/web/lib/db/repositories/` — the module is `server-only`; never import the data layer from client components (lint-enforced). Supabase credentials never ship to the browser.
 - The schema lives in exactly one file (`apps/web/lib/db/schema.ts`) — no duplicate model definitions anywhere.
-- Auth is deferred to a single local user: tables carry `user_id default 'local'` so Supabase Auth can later fill the column without a migration. Don't add auth flows or per-user scoping until that epic lands.
+- Auth is Supabase Auth (magic link + Google), server-only: `userId` comes exclusively from the session (`requireUserId()` in `lib/auth/session.ts`); every repository function requires it; lookups by id verify ownership through `decks.user_id` / `study_sessions.user_id`. Never accept `userId` from client input. Route protection lives in `proxy.ts`; no Supabase key ships to the browser (no `NEXT_PUBLIC_` prefix).
 - Ask before destructive operations (force-push, deleting content, resetting env files).
 
 ## Doc Index

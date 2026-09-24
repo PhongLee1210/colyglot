@@ -7,6 +7,7 @@ Coding conventions — how code is written, commented, and structured in colyglo
 - Follow conventions present in `app/`, `components/`, and `lib/`.
 - Business logic (scheduling, streak derivation, content transforms) belongs in `lib/` or `packages/*` — UI components compose it, they don't implement it.
 - Data access happens exclusively through the Drizzle repositories in `lib/db/repositories/` (server-only). Server Components and server actions call repositories directly; client components go through a server action or route handler — never the data layer.
+- Every repository function takes a required `userId` as its first argument, obtained only from the session (`requireUserId()`); id lookups verify ownership through `decks.user_id` / `study_sessions.user_id`, and foreign rows are indistinguishable from missing ones (`undefined` / `false`). Never accept `userId` from client input.
 - Reuse UI primitives from `components/ui/` (Button, Card, Input, Dialog, Toast, EmptyState, Skeleton, ErrorInline).
 - Favor explicit types; do not use `any`.
 - Keep all functions and components focused and minimal; avoid duplication.

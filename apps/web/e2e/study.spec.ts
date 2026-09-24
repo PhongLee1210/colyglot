@@ -37,7 +37,9 @@ test.describe("study loop", () => {
     await expect(page.getByText("你好")).toBeVisible();
 
     await page.getByRole("button", { name: /Card: 你好/ }).click();
-    await expect(page.getByText("xin chào")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Card: 你好/ })
+    ).toContainText("xin chào");
 
     await page.getByRole("button", { name: "Grade Again (1)" }).click();
     await expect(page.getByText(/will come back this session/)).toBeVisible();
