@@ -10,7 +10,7 @@ export default async function StudyPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <AppShell backHref="/">
+    <AppShell backHref="/" account={false}>
       <Suspense fallback={<CardListSkeleton count={2} />}>
         <StudyContent params={params} />
       </Suspense>

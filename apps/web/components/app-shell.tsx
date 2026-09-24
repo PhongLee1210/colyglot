@@ -1,7 +1,8 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
+import { AccountMenuGate } from "@/components/auth/account-menu-gate";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export function AppShell({
@@ -9,11 +10,13 @@ export function AppShell({
   title,
   backHref,
   actions,
+  account = true,
 }: {
   children: ReactNode;
   title?: ReactNode;
   backHref?: string;
   actions?: ReactNode;
+  account?: boolean;
 }) {
   return (
     <div className="mx-auto flex w-full max-w-[480px] flex-1 flex-col px-4 pb-[max(env(safe-area-inset-bottom),20px)] pt-[max(env(safe-area-inset-top),12px)]">
@@ -44,6 +47,11 @@ export function AppShell({
           <div className="flex-1" />
         )}
         {actions}
+        {account ? (
+          <Suspense fallback={<span className="size-9" aria-hidden />}>
+            <AccountMenuGate />
+          </Suspense>
+        ) : null}
         <ThemeToggle />
       </header>
       <main className="flex flex-1 flex-col">{children}</main>
