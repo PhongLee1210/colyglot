@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { review } from "@colyglot/srs";
 
+import { requireUserId } from "@/lib/auth/session";
 import {
   appendReviewLog,
   closeStudySession,
@@ -21,8 +22,9 @@ export type GradeResult = {
 };
 
 export async function startStudySessionAction(): Promise<ActionResult<string>> {
+  const userId = await requireUserId();
   try {
-    const session = await openStudySession();
+    const session = await openStudySession(userId);
     return { ok: true, data: session.id };
   } catch (error) {
     return {
@@ -37,8 +39,9 @@ export async function gradeCardAction(
   sessionId: string,
   grade: ReviewGrade
 ): Promise<ActionResult<GradeResult>> {
+  const userId = await requireUserId();
   try {
-    const current = await getCardSchedule(cardId);
+    const current = await getCardSchedule(userId, cardId);
     const state = current
       ? {
           easeFactor: current.easeFactor,
@@ -51,7 +54,7 @@ export async function gradeCardAction(
         }
       : null;
     const next = review(state, grade, new Date());
-    await upsertCardSchedule(cardId, {
+    const upserted = await upsertCardSchedule(userId, cardId, {
       easeFactor: next.easeFactor,
       intervalDays: next.intervalDays,
       dueAt: next.dueAt,
@@ -60,7 +63,13 @@ export async function gradeCardAction(
       lapses: next.lapses,
       lastReviewedAt: next.lastReviewedAt,
     });
-    await appendReviewLog({ cardId, sessionId, grade });
+    if (!upserted) {
+      return { ok: false, error: "Card not found" };
+    }
+    const log = await appendReviewLog(userId, { cardId, sessionId, grade });
+    if (!log) {
+      return { ok: false, error: "Session not found" };
+    }
     return {
       ok: true,
       data: {
@@ -81,8 +90,12 @@ export async function finishSessionAction(
   sessionId: string,
   cardsReviewed: number
 ): Promise<ActionResult<true>> {
+  const userId = await requireUserId();
   try {
-    await closeStudySession(sessionId, cardsReviewed);
+    const closed = await closeStudySession(userId, sessionId, cardsReviewed);
+    if (!closed) {
+      return { ok: false, error: "Session not found" };
+    }
     return { ok: true, data: true };
   } catch (error) {
     return {
@@ -93,6 +106,7 @@ export async function finishSessionAction(
 }
 
 export async function revalidateDeckAction(deckId: string): Promise<void> {
+  await requireUserId();
   revalidatePath(`/decks/${deckId}`);
   revalidatePath("/");
 }

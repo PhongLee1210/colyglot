@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { getUserId } from "@/lib/auth/session";
 import {
+  getCard,
   getCardRecording,
   saveCardRecording,
 } from "@/lib/db/repositories/content";
@@ -18,6 +20,15 @@ export async function POST(
     return NextResponse.json({ error: "Invalid card id" }, { status: 400 });
   }
 
+  const userId = await getUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const card = await getCard(userId, id);
+  if (!card) {
+    return NextResponse.json({ error: "Card not found" }, { status: 404 });
+  }
+
   const form = await request.formData().catch(() => null);
   const take = form?.get("take");
   if (!(take instanceof File)) {
@@ -26,10 +37,10 @@ export async function POST(
 
   try {
     const bytes = Buffer.from(await take.arrayBuffer());
-    const storagePath = await saveTake(id, bytes);
+    const storagePath = await saveTake(userId, id, bytes);
     const durationHeader = request.headers.get("x-take-duration-ms");
     const durationMs = durationHeader ? Number.parseInt(durationHeader, 10) : 0;
-    await saveCardRecording({
+    await saveCardRecording(userId, {
       cardId: id,
       storagePath,
       durationMs: Number.isFinite(durationMs) ? durationMs : 0,
@@ -52,14 +63,18 @@ export async function GET(
     return NextResponse.json({ error: "Invalid card id" }, { status: 400 });
   }
 
-  const recording = await getCardRecording(id).catch(() => undefined);
+  const userId = await getUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const recording = await getCardRecording(userId, id).catch(() => undefined);
   if (!recording) {
     return NextResponse.json(
       { error: "No take for this card" },
       { status: 404 }
     );
   }
-  const stored = await readTake(id);
+  const stored = await readTake(userId, id);
   if (!stored) {
     return NextResponse.json(
       { error: "No take for this card" },
@@ -82,6 +97,15 @@ export async function HEAD(
   if (!UUID_PATTERN.test(id)) {
     return new NextResponse(null, { status: 400 });
   }
-  const stored = await readTake(id).catch(() => null);
+
+  const userId = await getUserId();
+  if (!userId) {
+    return new NextResponse(null, { status: 401 });
+  }
+  const recording = await getCardRecording(userId, id).catch(() => undefined);
+  if (!recording) {
+    return new NextResponse(null, { status: 404 });
+  }
+  const stored = await readTake(userId, id).catch(() => null);
   return new NextResponse(null, { status: stored ? 200 : 404 });
 }

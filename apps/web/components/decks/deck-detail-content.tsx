@@ -9,6 +9,7 @@ import { CardRowActions } from "@/components/decks/card-row-actions";
 import { DeleteDeckButton } from "@/components/decks/delete-deck-button";
 import { RenameDeckDialog } from "@/components/decks/rename-deck-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { requireUserId } from "@/lib/auth/session";
 import { getDeck, listCards } from "@/lib/db/repositories/content";
 import { countDueCardsByDeck } from "@/lib/db/repositories/study";
 
@@ -109,10 +110,11 @@ export async function DeckDetailContent({
 }
 
 async function loadData(deckId: string) {
+  const userId = await requireUserId();
   const [deck, cards, dueCounts] = await Promise.all([
-    getDeck(deckId),
-    listCards(deckId),
-    countDueCardsByDeck(),
+    getDeck(userId, deckId),
+    listCards(userId, deckId),
+    countDueCardsByDeck(userId),
   ]);
   const dueCount =
     dueCounts.find((row) => row.deckId === deckId)?.dueCount ?? 0;

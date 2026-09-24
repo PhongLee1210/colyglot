@@ -1,11 +1,10 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "../index";
 import {
   cardRecordings,
   cards,
   decks,
-  LOCAL_USER_ID,
   type Card,
   type CardCollocation,
   type CardExample,
@@ -17,7 +16,6 @@ export type CreateDeckInput = {
   name: string;
   sourceLang?: string;
   targetLang?: string;
-  userId?: string;
 };
 
 export type CreateCardInput = {
@@ -43,19 +41,36 @@ export type SaveCardRecordingInput = {
   durationMs?: number;
 };
 
-export async function createDeck(input: CreateDeckInput): Promise<Deck> {
-  const [deck] = await getDb().insert(decks).values(input).returning();
+function ownedDeckIds(userId: string) {
+  return getDb()
+    .select({ id: decks.id })
+    .from(decks)
+    .where(eq(decks.userId, userId));
+}
+
+export async function createDeck(
+  userId: string,
+  input: CreateDeckInput
+): Promise<Deck> {
+  const [deck] = await getDb()
+    .insert(decks)
+    .values({ ...input, userId })
+    .returning();
   return deck;
 }
 
-export async function getDeck(deckId: string): Promise<Deck | undefined> {
-  const [deck] = await getDb().select().from(decks).where(eq(decks.id, deckId));
+export async function getDeck(
+  userId: string,
+  deckId: string
+): Promise<Deck | undefined> {
+  const [deck] = await getDb()
+    .select()
+    .from(decks)
+    .where(and(eq(decks.id, deckId), eq(decks.userId, userId)));
   return deck;
 }
 
-export async function listDecks(
-  userId: string = LOCAL_USER_ID
-): Promise<Deck[]> {
+export async function listDecks(userId: string): Promise<Deck[]> {
   return getDb()
     .select()
     .from(decks)
@@ -64,56 +79,91 @@ export async function listDecks(
 }
 
 export async function renameDeck(
+  userId: string,
   deckId: string,
   name: string
 ): Promise<Deck | undefined> {
   const [deck] = await getDb()
     .update(decks)
     .set({ name })
-    .where(eq(decks.id, deckId))
+    .where(and(eq(decks.id, deckId), eq(decks.userId, userId)))
     .returning();
   return deck;
 }
 
-export async function deleteDeck(deckId: string): Promise<boolean> {
+export async function deleteDeck(
+  userId: string,
+  deckId: string
+): Promise<boolean> {
   const deletedRows = await getDb()
     .delete(decks)
-    .where(eq(decks.id, deckId))
+    .where(and(eq(decks.id, deckId), eq(decks.userId, userId)))
     .returning({ id: decks.id });
   return deletedRows.length > 0;
 }
 
-export async function createCard(input: CreateCardInput): Promise<Card> {
+export async function createCard(
+  userId: string,
+  input: CreateCardInput
+): Promise<Card | undefined> {
+  const deck = await getDeck(userId, input.deckId);
+  if (!deck) {
+    return undefined;
+  }
   const [card] = await getDb().insert(cards).values(input).returning();
   return card;
 }
 
-export async function getCard(cardId: string): Promise<Card | undefined> {
-  const [card] = await getDb().select().from(cards).where(eq(cards.id, cardId));
-  return card;
+export async function getCard(
+  userId: string,
+  cardId: string
+): Promise<Card | undefined> {
+  const [card] = await getDb()
+    .select({ card: cards })
+    .from(cards)
+    .where(
+      and(eq(cards.id, cardId), inArray(cards.deckId, ownedDeckIds(userId)))
+    )
+    .limit(1);
+  return card?.card;
 }
 
 export async function updateCard(
+  userId: string,
   cardId: string,
   input: UpdateCardInput
 ): Promise<Card | undefined> {
   const [card] = await getDb()
     .update(cards)
     .set(input)
-    .where(eq(cards.id, cardId))
+    .where(
+      and(eq(cards.id, cardId), inArray(cards.deckId, ownedDeckIds(userId)))
+    )
     .returning();
   return card;
 }
 
-export async function deleteCard(cardId: string): Promise<boolean> {
+export async function deleteCard(
+  userId: string,
+  cardId: string
+): Promise<boolean> {
   const deletedRows = await getDb()
     .delete(cards)
-    .where(eq(cards.id, cardId))
+    .where(
+      and(eq(cards.id, cardId), inArray(cards.deckId, ownedDeckIds(userId)))
+    )
     .returning({ id: cards.id });
   return deletedRows.length > 0;
 }
 
-export async function listCards(deckId: string): Promise<Card[]> {
+export async function listCards(
+  userId: string,
+  deckId: string
+): Promise<Card[]> {
+  const deck = await getDeck(userId, deckId);
+  if (!deck) {
+    return [];
+  }
   return getDb()
     .select()
     .from(cards)
@@ -122,8 +172,13 @@ export async function listCards(deckId: string): Promise<Card[]> {
 }
 
 export async function saveCardRecording(
+  userId: string,
   input: SaveCardRecordingInput
-): Promise<CardRecording> {
+): Promise<CardRecording | undefined> {
+  const card = await getCard(userId, input.cardId);
+  if (!card) {
+    return undefined;
+  }
   const [recording] = await getDb()
     .insert(cardRecordings)
     .values(input)
@@ -139,8 +194,13 @@ export async function saveCardRecording(
 }
 
 export async function getCardRecording(
+  userId: string,
   cardId: string
 ): Promise<CardRecording | undefined> {
+  const card = await getCard(userId, cardId);
+  if (!card) {
+    return undefined;
+  }
   const [recording] = await getDb()
     .select()
     .from(cardRecordings)
@@ -148,7 +208,14 @@ export async function getCardRecording(
   return recording;
 }
 
-export async function deleteCardRecording(cardId: string): Promise<boolean> {
+export async function deleteCardRecording(
+  userId: string,
+  cardId: string
+): Promise<boolean> {
+  const card = await getCard(userId, cardId);
+  if (!card) {
+    return false;
+  }
   const deletedRows = await getDb()
     .delete(cardRecordings)
     .where(eq(cardRecordings.cardId, cardId))

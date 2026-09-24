@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { requireUserId } from "@/lib/auth/session";
 import { getDeck } from "@/lib/db/repositories/content";
 import {
   getCurrentStreak,
@@ -45,10 +46,11 @@ async function CompleteContent({
   if (!sessionId) {
     notFound();
   }
+  const userId = await requireUserId();
   const [deck, summary, streak] = await Promise.all([
-    getDeck(deckId).catch(() => undefined),
-    getSessionReviewSummary(sessionId).catch(() => undefined),
-    getCurrentStreak().catch(() => 0),
+    getDeck(userId, deckId).catch(() => undefined),
+    getSessionReviewSummary(userId, sessionId).catch(() => undefined),
+    getCurrentStreak(userId).catch(() => 0),
   ]);
   if (!summary) {
     notFound();

@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { CreateDeckDialog } from "@/components/dashboard/create-deck-dialog";
 import { DataError } from "@/components/data-error";
 import { EmptyState } from "@/components/ui/empty-state";
+import { requireUserId } from "@/lib/auth/session";
 import { listDecks } from "@/lib/db/repositories/content";
 import {
   countDueCardsByDeck,
@@ -124,10 +125,11 @@ export async function DashboardContent() {
 }
 
 async function loadDashboard() {
+  const userId = await requireUserId();
   const [decks, dueCounts, streak] = await Promise.all([
-    listDecks(),
-    countDueCardsByDeck(),
-    getCurrentStreak(),
+    listDecks(userId),
+    countDueCardsByDeck(userId),
+    getCurrentStreak(userId),
   ]);
   return { decks, dueCounts, streak };
 }

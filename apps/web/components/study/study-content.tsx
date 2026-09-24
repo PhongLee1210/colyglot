@@ -11,6 +11,7 @@ import {
 import { StudySession } from "@/components/study/study-session";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { requireUserId } from "@/lib/auth/session";
 import { getDeck } from "@/lib/db/repositories/content";
 import { getDueQueue, openStudySession } from "@/lib/db/repositories/study";
 import type { Card } from "@/lib/db/schema";
@@ -38,12 +39,13 @@ export async function StudyContent({
 }) {
   await connection();
   const { id: deckId } = await params;
-  const deck = await getDeck(deckId);
+  const userId = await requireUserId();
+  const deck = await getDeck(userId, deckId);
   if (!deck) {
     notFound();
   }
 
-  const dueItems = (await getDueQueue()).filter(
+  const dueItems = (await getDueQueue(userId)).filter(
     (item) => item.card.deckId === deckId
   );
   const now = new Date();
@@ -79,7 +81,7 @@ export async function StudyContent({
     );
   }
 
-  const session = await openStudySession();
+  const session = await openStudySession(userId);
   const cards: SessionCard[] = queue.map((item) => {
     const state = item.schedule
       ? {

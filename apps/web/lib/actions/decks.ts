@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { requireUserId } from "@/lib/auth/session";
 import {
   createCard,
   createDeck,
@@ -27,12 +28,13 @@ export type DeckInput = {
 export async function createDeckAction(
   input: DeckInput
 ): Promise<ActionResult<Deck>> {
+  const userId = await requireUserId();
   const name = input.name.trim();
   if (!name) {
     return { ok: false, error: "Deck name is required" };
   }
   try {
-    const deck = await createDeck({ name });
+    const deck = await createDeck(userId, { name });
     revalidatePath(DECK_PATH);
     return { ok: true, data: deck };
   } catch (error) {
@@ -44,12 +46,13 @@ export async function renameDeckAction(
   deckId: string,
   name: string
 ): Promise<ActionResult<Deck>> {
+  const userId = await requireUserId();
   const trimmed = name.trim();
   if (!trimmed) {
     return { ok: false, error: "Deck name is required" };
   }
   try {
-    const deck = await renameDeck(deckId, trimmed);
+    const deck = await renameDeck(userId, deckId, trimmed);
     if (!deck) {
       return { ok: false, error: "Deck not found" };
     }
@@ -64,8 +67,9 @@ export async function renameDeckAction(
 export async function deleteDeckAction(
   deckId: string
 ): Promise<ActionResult<true>> {
+  const userId = await requireUserId();
   try {
-    const deleted = await deleteDeck(deckId);
+    const deleted = await deleteDeck(userId, deckId);
     if (!deleted) {
       return { ok: false, error: "Deck not found" };
     }
@@ -101,12 +105,13 @@ function validateCardInput(input: CardInput): string | null {
 export async function createCardAction(
   input: CardInput
 ): Promise<ActionResult<Card>> {
+  const userId = await requireUserId();
   const error = validateCardInput(input);
   if (error) {
     return { ok: false, error: error };
   }
   try {
-    const card = await createCard({
+    const card = await createCard(userId, {
       deckId: input.deckId,
       hanzi: input.hanzi.trim(),
       pinyin: input.pinyin.trim(),
@@ -114,6 +119,9 @@ export async function createCardAction(
       examples: input.examples,
       collocations: input.collocations,
     });
+    if (!card) {
+      return { ok: false, error: "Deck not found" };
+    }
     revalidatePath(`/decks/${input.deckId}`);
     return { ok: true, data: card };
   } catch (cause) {
@@ -135,12 +143,13 @@ export async function updateCardAction(
   deckId: string,
   input: Omit<CardInput, "deckId">
 ): Promise<ActionResult<Card>> {
+  const userId = await requireUserId();
   const error = validateCardInput({ ...input, deckId });
   if (error) {
     return { ok: false, error: error };
   }
   try {
-    const card = await updateCard(cardId, {
+    const card = await updateCard(userId, cardId, {
       hanzi: input.hanzi.trim(),
       pinyin: input.pinyin.trim(),
       translation: input.translation.trim(),
@@ -170,8 +179,9 @@ export async function deleteCardAction(
   cardId: string,
   deckId: string
 ): Promise<ActionResult<true>> {
+  const userId = await requireUserId();
   try {
-    const deleted = await deleteCard(cardId);
+    const deleted = await deleteCard(userId, cardId);
     if (!deleted) {
       return { ok: false, error: "Card not found" };
     }
@@ -185,7 +195,8 @@ export async function deleteCardAction(
 export async function deleteDeckAndRedirectAction(
   deckId: string
 ): Promise<void> {
-  await deleteDeck(deckId);
+  const userId = await requireUserId();
+  await deleteDeck(userId, deckId);
   revalidatePath(DECK_PATH);
   redirect("/");
 }
