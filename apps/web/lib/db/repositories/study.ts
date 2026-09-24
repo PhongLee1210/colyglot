@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
 
+import { computeStreak } from "@/lib/streak";
 import { getDb } from "../index";
 import {
   cards,
@@ -151,4 +152,60 @@ export async function listReviewLogsByCard(
     .from(reviewLogs)
     .where(eq(reviewLogs.cardId, cardId))
     .orderBy(asc(reviewLogs.reviewedAt));
+}
+
+export async function getCurrentStreak(
+  now: Date = new Date()
+): Promise<number> {
+  const rows = await getDb()
+    .selectDistinct({
+      day: sql<string>`to_char(${reviewLogs.reviewedAt} at time zone 'utc', 'YYYY-MM-DD')`,
+    })
+    .from(reviewLogs);
+  return computeStreak(
+    rows.map((row) => row.day),
+    now
+  );
+}
+
+export type SessionReviewSummary = {
+  sessionId: string;
+  startedAt: Date;
+  endedAt: Date | null;
+  cardsReviewed: number;
+  totalReviews: number;
+  againCount: number;
+  goodCount: number;
+  easyCount: number;
+};
+
+export async function getSessionReviewSummary(
+  sessionId: string
+): Promise<SessionReviewSummary | undefined> {
+  const [row] = await getDb()
+    .select({
+      session: studySessions,
+      total: sql<number>`count(*)::int`,
+      againCount: sql<number>`count(*) filter (where ${reviewLogs.grade} <= ${ReviewGrade.HARD})::int`,
+      goodCount: sql<number>`count(*) filter (where ${reviewLogs.grade} = ${ReviewGrade.GOOD})::int`,
+      easyCount: sql<number>`count(*) filter (where ${reviewLogs.grade} >= ${ReviewGrade.EASY})::int`,
+    })
+    .from(studySessions)
+    .leftJoin(reviewLogs, eq(reviewLogs.sessionId, studySessions.id))
+    .where(eq(studySessions.id, sessionId))
+    .groupBy(studySessions.id);
+
+  if (!row) {
+    return undefined;
+  }
+  return {
+    sessionId: row.session.id,
+    startedAt: row.session.startedAt,
+    endedAt: row.session.endedAt,
+    cardsReviewed: row.session.cardsReviewed,
+    totalReviews: row.total,
+    againCount: row.againCount,
+    goodCount: row.goodCount,
+    easyCount: row.easyCount,
+  };
 }

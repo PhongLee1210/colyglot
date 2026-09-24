@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {/* config options here */};
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+  transpilePackages: ["@colyglot/srs"],
+};
 
 export default nextConfig;

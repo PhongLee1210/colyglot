@@ -11,6 +11,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 
+import { getDb } from "../index";
 import {
   createCard,
   createDeck,
@@ -23,13 +24,15 @@ import {
   appendReviewLog,
   closeStudySession,
   countDueCardsByDeck,
+  getCurrentStreak,
   getDueQueue,
+  getSessionReviewSummary,
   listReviewLogsByCard,
   openStudySession,
   upsertCardSchedule,
   type ScheduleState,
 } from "../repositories/study";
-import { ReviewGrade } from "../schema";
+import { ReviewGrade, reviewLogs } from "../schema";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
 const describeIntegration = databaseUrl ? describe : describe.skip;
@@ -243,5 +246,66 @@ describeIntegration("data layer round-trip", () => {
     expect(await listCards(deck.id)).toEqual([]);
     expect(await getCardRecording(card.id)).toBeUndefined();
     expect(await listReviewLogsByCard(card.id)).toEqual([]);
+  });
+
+  test("getCurrentStreak derives consecutive days from review logs", async () => {
+    const { card } = await createDeckWithCard();
+    const session = await openStudySession();
+    const db = getDb();
+    const NOW = new Date("2026-09-24T12:00:00Z");
+
+    await db.insert(reviewLogs).values([
+      {
+        cardId: card.id,
+        sessionId: session.id,
+        grade: ReviewGrade.GOOD,
+        reviewedAt: new Date("2026-09-23T10:00:00Z"),
+      },
+      {
+        cardId: card.id,
+        sessionId: session.id,
+        grade: ReviewGrade.EASY,
+        reviewedAt: new Date("2026-09-24T01:00:00Z"),
+      },
+      {
+        cardId: card.id,
+        sessionId: session.id,
+        grade: ReviewGrade.FORGOT,
+        reviewedAt: new Date("2026-09-24T22:00:00Z"),
+      },
+    ]);
+
+    expect(await getCurrentStreak(NOW)).toBe(2);
+    expect(await getCurrentStreak(new Date("2026-09-26T12:00:00Z"))).toBe(0);
+  });
+
+  test("getSessionReviewSummary buckets grades and closes with counts", async () => {
+    const { card } = await createDeckWithCard();
+    const session = await openStudySession();
+
+    await appendReviewLog({
+      cardId: card.id,
+      sessionId: session.id,
+      grade: ReviewGrade.FORGOT,
+    });
+    await appendReviewLog({
+      cardId: card.id,
+      sessionId: session.id,
+      grade: ReviewGrade.GOOD,
+    });
+    await appendReviewLog({
+      cardId: card.id,
+      sessionId: session.id,
+      grade: ReviewGrade.PERFECT,
+    });
+    await closeStudySession(session.id, 2);
+
+    const summary = await getSessionReviewSummary(session.id);
+    expect(summary?.totalReviews).toBe(3);
+    expect(summary?.againCount).toBe(1);
+    expect(summary?.goodCount).toBe(1);
+    expect(summary?.easyCount).toBe(1);
+    expect(summary?.cardsReviewed).toBe(2);
+    expect(summary?.endedAt).not.toBeNull();
   });
 });

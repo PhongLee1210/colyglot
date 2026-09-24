@@ -46,3 +46,14 @@ next-env.d.ts
 
 # internal story planning docs — keep local only
 docs/stories/
+
+# local recording takes (swap target for Supabase Storage)
+apps/web/.data/
+
+# playwright
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/e2e/.auth/
+
+# agent tooling
+.serena/

@@ -13,6 +13,15 @@
     "lint": {
       "dependsOn": ["^lint"]
     },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "cache": true
+    },
+    "test": {
+      "dependsOn": ["^test"],
+      "cache": true,
+      "env": ["DATABASE_URL"]
+    },
     "start": {
       "dependsOn": ["build"],
       "cache": false,

@@ -7,7 +7,10 @@ import * as schema from "./schema";
 
 export type Database = PostgresJsDatabase<typeof schema>;
 
-const MAX_CONNECTIONS = 10;
+// Supabase's session-mode pooler allows few concurrent clients per database;
+// keeping the per-process pool small lets a dev server and a prod server (or
+// Drizzle Studio) coexist without exhausting the pool (EMAXCONNSESSION).
+const MAX_CONNECTIONS = 5;
 
 function createDatabase(connectionUrl: string): Database {
   const client = postgres(connectionUrl, {
