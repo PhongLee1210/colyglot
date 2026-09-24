@@ -28,6 +28,28 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    files: ["components/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/lib/auth/server-client",
+              message:
+                "Server-only — client components must go through server actions in '@/lib/actions'.",
+            },
+            {
+              name: "@/lib/auth/session",
+              message:
+                "Server-only — receive the user id via props or server actions instead.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
