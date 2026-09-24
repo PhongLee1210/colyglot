@@ -12,8 +12,6 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-export const LOCAL_USER_ID = "local";
-
 export const DEFAULT_SOURCE_LANG = "zh";
 export const DEFAULT_TARGET_LANG = "vi";
 

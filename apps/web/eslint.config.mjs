@@ -40,11 +40,6 @@ const eslintConfig = defineConfig([
               message:
                 "Server-only — client components must go through server actions in '@/lib/actions'.",
             },
-            {
-              name: "@/lib/auth/session",
-              message:
-                "Server-only — receive the user id via props or server actions instead.",
-            },
           ],
         },
       ],

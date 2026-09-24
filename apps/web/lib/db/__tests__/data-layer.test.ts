@@ -59,6 +59,9 @@ async function createDeckWithCard(hanzi = "你好", userId = USER_ID) {
       },
     ],
   });
+  if (!card) {
+    throw new Error("test setup failed: card was not created");
+  }
   return { deck, card };
 }
 

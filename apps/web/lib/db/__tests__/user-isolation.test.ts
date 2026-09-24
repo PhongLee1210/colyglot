@@ -234,5 +234,8 @@ async function createOwnedDeckWithCard() {
     pinyin: "nǐ hǎo",
     translation: "xin chào",
   });
+  if (!card) {
+    throw new Error("test setup failed: card was not created");
+  }
   return { deck, card };
 }
