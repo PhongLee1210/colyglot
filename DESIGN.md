@@ -245,7 +245,7 @@ Icons: `lucide-react`, 16 (inline) / 20 (cells, buttons) / 22 (header).
 | Deck Export       | `/decks/[id]/export`   | Detail    | Anki / CSV                                                                     |
 | Settings          | `/me/settings`         | Detail    | study preferences, study steps, locale, theme                                  |
 | Subscription      | `/me/subscription`     | Detail    | pricing tiers, checkout                                                        |
-| Auth              | `/sign-in`             | Focus     | sign in, auto sign-in, sign-out confirmation (deferred epic)                   |
+| Auth              | `/sign-in`             | Focus     | magic-link email + Google; sent/error states; ghost 學 watermark               |
 | Onboarding        | `/onboarding`          | Focus     | language pair → how-to guide                                                   |
 | Not Found         | —                      | Detail    | back to Decks                                                                  |
 
