@@ -4,6 +4,8 @@ import Link from "next/link";
 
 import { XP_PER_LEVEL, xpIntoLevel } from "@/lib/xp";
 
+import { GameSettings } from "./game-settings";
+
 export function TopBar({
   flag,
   langName,
@@ -60,6 +62,7 @@ export function TopBar({
             />
           </span>
         </span>
+        <GameSettings />
       </div>
     </header>
   );

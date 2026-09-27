@@ -29,6 +29,13 @@
       "when": 1790480826818,
       "tag": "0003_stale_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790523715866,
+      "tag": "0004_keen_steel_serpent",
+      "breakpoints": true
     }
   ]
 }

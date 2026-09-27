@@ -2,11 +2,18 @@
 
 import { useEffect, useState } from "react";
 
+import { updateMusicSettingsAction } from "@/lib/actions/settings";
 import { LANG_PACKS } from "@/lib/game/content";
+import type { MusicSettings } from "@/lib/game/music";
 import { useFarmStore } from "@/lib/game/store/farm-store";
+import {
+  bindMusicPersistence,
+  useMusicStore,
+} from "@/lib/game/store/music-store";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
 
 import { FarmScene } from "./farm-scene";
+import { GameMusic } from "./game-music";
 import { HarvestSession } from "./harvest-session";
 import { NurserySession } from "./nursery-session";
 import { SeedsPanel } from "./seeds-panel";
@@ -18,12 +25,15 @@ import { useHydrated } from "./use-hydrated";
 export function FarmGame({
   initialSnapshot,
   streak,
+  musicSettings,
 }: {
   initialSnapshot: FarmWorldSnapshot;
   streak: number;
+  musicSettings: MusicSettings;
 }) {
   const snapshot = useFarmStore((state) => state.snapshot);
   const hydrate = useFarmStore((state) => state.hydrate);
+  const hydrateMusic = useMusicStore((state) => state.hydrate);
   const [open, setOpen] = useState<"seeds" | "nursery" | "harvest" | null>(
     null
   );
@@ -35,12 +45,23 @@ export function FarmGame({
     hydrate(initialSnapshot);
   }, [initialSnapshot, hydrate]);
 
+  useEffect(() => {
+    hydrateMusic(musicSettings);
+  }, [musicSettings, hydrateMusic]);
+
+  useEffect(() => {
+    bindMusicPersistence((settings) =>
+      updateMusicSettingsAction(settings.volume, settings.muted)
+    );
+  }, []);
+
   const current = snapshot ?? initialSnapshot;
   const pack = LANG_PACKS[current.world.langKey];
   const tier = pack.tiers[current.world.tier];
 
   return (
     <div className="relative min-h-dvh overflow-x-clip">
+      <GameMusic />
       <TopBar
         flag={pack.flag}
         langName={pack.name}

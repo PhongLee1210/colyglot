@@ -44,12 +44,22 @@ const NURSERY_GRADES: {
 
 type Phase = "intro" | "recall" | "grade";
 
+// Fisher–Yates: `sort(() => Math.random() - 0.5)` skews positions, which
+// lets learners guess the answer slot instead of recalling the meaning.
+function shuffle<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 function buildChoices(translation: string, pool: string[]): string[] {
-  const distractors = pool
-    .filter((candidate) => candidate !== translation)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 2);
-  return [translation, ...distractors].sort(() => Math.random() - 0.5);
+  const distractors = shuffle(
+    [...new Set(pool)].filter((candidate) => candidate !== translation)
+  ).slice(0, 2);
+  return shuffle([translation, ...distractors]);
 }
 
 export function NurserySession({ onClose }: { onClose: () => void }) {
@@ -64,8 +74,9 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
   const [phase, setPhase] = useState<Phase>("intro");
   const [choices, setChoices] = useState<string[]>([]);
   const [picked, setPicked] = useState<string | null>(null);
-
-  const queue = snapshot?.freshQueue ?? [];
+  // Frozen at mount: a snapshot refresh mid-session drops graded seedlings
+  // from `freshQueue`, which would shift the index past unseen cards.
+  const [queue] = useState(() => snapshot?.freshQueue ?? []);
   const card = queue[index];
   const done = index >= queue.length;
   const word = card ? findWord(snapshot!.world.langKey, card.hanzi) : null;

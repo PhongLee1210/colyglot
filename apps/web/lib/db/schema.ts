@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
@@ -11,6 +12,8 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
+
+import { DEFAULT_MUSIC_VOLUME } from "@/lib/game/music";
 
 export const DEFAULT_SOURCE_LANG = "zh";
 export const DEFAULT_TARGET_LANG = "vi";
@@ -321,6 +324,26 @@ export const farmHarvestClaims = pgTable(
   (table) => [index("farm_harvest_claims_world_id_idx").on(table.worldId)]
 );
 
+export const userSettings = pgTable(
+  "user_settings",
+  {
+    userId: text("user_id").primaryKey(),
+    musicVolume: integer("music_volume")
+      .notNull()
+      .default(DEFAULT_MUSIC_VOLUME),
+    musicMuted: boolean("music_muted").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "user_settings_music_volume_check",
+      sql`${table.musicVolume} between 0 and 100`
+    ),
+  ]
+);
+
 export type Deck = typeof decks.$inferSelect;
 export type NewDeck = typeof decks.$inferInsert;
 export type Card = typeof cards.$inferSelect;
@@ -335,3 +358,4 @@ export type FarmBed = typeof farmBeds.$inferSelect;
 export type FarmPlot = typeof farmPlots.$inferSelect;
 export type FarmItem = typeof farmItems.$inferSelect;
 export type FarmHarvestClaim = typeof farmHarvestClaims.$inferSelect;
+export type UserSettings = typeof userSettings.$inferSelect;
