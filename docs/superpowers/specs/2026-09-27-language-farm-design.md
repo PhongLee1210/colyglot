@@ -47,7 +47,8 @@ knowledge.
 ## 3. Economy (Phase 1 scope)
 
 - `STARTING_GOLD = 40`, `START_PLOTS = 6`, `PLOTS_PER_EXPAND = 3`.
-- `expandBedCost(plotCount) = 20 * expansionsSoFar` → 20, 40, 60 … where
+- `expandBedCost(plotCount) = EXPAND_BASE_COST * (expansionsSoFar + 1)` →
+  20, 40, 60 … where
   `expansionsSoFar = (plotCount - START_PLOTS) / PLOTS_PER_EXPAND`.
 - `baseHarvestGold(intervalDaysBefore) = 2 + min(max(intervalDaysBefore, 0), 60)`
 - Grade multipliers: FORGOT 0.25, HARD 0.75, GOOD 1, EASY 1.25, PERFECT 1.5.
