@@ -89,7 +89,10 @@ export function review(
   const previous = state ?? newSchedule(now);
   const easeFactor = nextEaseFactor(previous.easeFactor, grade);
   const lapsed = grade < LAPSE_GRADE_THRESHOLD;
-  const repetitions = lapsed ? 0 : previous.reviewCount + 1;
+  // Intervals follow the streak of correct recalls: reviewCount includes
+  // lapses, so using it here would hand a relearned card the mature
+  // interval it had before forgetting.
+  const repetitions = lapsed ? 0 : previous.consecutiveCorrect + 1;
   const intervalDays = lapsed
     ? FIRST_INTERVAL_DAYS
     : nextIntervalDays(previous.intervalDays, easeFactor, repetitions);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   DEFAULT_EASE_FACTOR,
+  FIRST_INTERVAL_DAYS,
   isValidReviewGrade,
   MIN_EASE_FACTOR,
   newSchedule,
@@ -67,6 +68,23 @@ describe("review — story 3.1 worked example (golden sequence)", () => {
     expect(lapsed.consecutiveCorrect).toBe(0);
     expect(lapsed.lapses).toBe(1);
     expect(lapsed.dueAt.getTime()).toBe(T0.getTime() + 1 * DAY_MS);
+  });
+
+  test("pass right after a lapse restarts from the first interval", () => {
+    let state = review(null, ReviewGrade.GOOD, T0);
+    state = review(state, ReviewGrade.GOOD, state.dueAt);
+    const matured = state as ScheduleState;
+    expect(matured.intervalDays).toBe(6);
+    expect(matured.reviewCount).toBe(2);
+
+    const lapsed = review(matured, ReviewGrade.FORGOT, matured.dueAt);
+    expect(lapsed.intervalDays).toBe(FIRST_INTERVAL_DAYS);
+
+    // reviewCount includes the lapse, but the relearn pass must not skip
+    // ahead to the second interval.
+    const relearned = review(lapsed, ReviewGrade.GOOD, lapsed.dueAt);
+    expect(relearned.intervalDays).toBe(FIRST_INTERVAL_DAYS);
+    expect(relearned.consecutiveCorrect).toBe(1);
   });
 });
 
