@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Colyglot is a language-learning tool: translate words/phrases while reading and learn them via flashcards with spaced repetition.
+Colyglot is a vibrant language-learning adventure—an app where playful practice and creative challenges make mastering new tongues both fun and memorable. Whether you're tackling tricky vocabulary, unlocking levels, or connecting with fellow learners, Colyglot turns every lesson into a joyful, interactive experience designed to spark curiosity and sustain your learning journey.
 
 ## Tech Stack
 
@@ -18,12 +18,13 @@ Colyglot is a language-learning tool: translate words/phrases while reading and 
 
 ```
 apps/web/                # Next.js app (package name: "web")
-  components/            # UI primitives (components/ui) + feature components
+  components/            # farm game UI (components/farm) + UI primitives (components/ui)
   e2e/                   # Playwright E2E specs (bun run test:e2e in apps/web)
   lib/actions/           # server actions (typed ActionResult contracts)
   lib/db/                # Drizzle schema + server-only repositories
   lib/db/repositories/   # the only sanctioned data-access surface
   lib/storage/           # take-storage adapter (local now, Supabase Storage later)
+  lib/game/              # client-safe farm content registry, core economy, art, store
   drizzle/               # committed SQL migrations
 packages/srs/            # @colyglot/srs — pure SM-2 engine + queue priority
 docs/                    # engineering standards + story board
@@ -78,18 +79,25 @@ rtk run -- bun run test        # run and track tests
 - NEVER skip verification (lint + typecheck + test) before declaring work done.
 - NEVER mark work complete with failing checks.
 - NEVER modify generated files (`.next/`, `next-env.d.ts`).
-- All data access goes through the Drizzle repositories in `apps/web/lib/db/repositories/` — the module is `server-only`; never import the data layer from client components (lint-enforced). Supabase credentials never ship to the browser.
 - The schema lives in exactly one file (`apps/web/lib/db/schema.ts`) — no duplicate model definitions anywhere.
-- Auth is Supabase Auth (magic link + Google), server-only: `userId` comes exclusively from the session (`requireUserId()` in `lib/auth/session.ts`); every repository function requires it; lookups by id verify ownership through `decks.user_id` / `study_sessions.user_id`. Never accept `userId` from client input. Route protection lives in `proxy.ts`; no Supabase key ships to the browser (no `NEXT_PUBLIC_` prefix).
 - Ask before destructive operations (force-push, deleting content, resetting env files).
+
+## Code Indexing & Editing with Serena
+
+Serena indexes the codebase for fast symbol lookup and precise edits:
+
+- **Find symbols**: `find_symbol()` locates classes, functions, types by name or pattern
+- **Symbol overview**: `get_symbols_overview()` lists all symbols in a file
+- **Find implementations**: `find_implementations()` traces where symbols are used
+- **Track edits**: `write_memory()` documents structural changes for future context
+- **Get diagnostics**: `get_diagnostics_for_file()` identifies type errors, unused code
 
 ## Doc Index
 
-The only place that links to `docs/*`. Individual docs are self-contained (no cross-links).
+The only place that links to `docs/*`.
 
-| Document           | Path                                                                             | Scope                                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Design Spec        | [DESIGN.md](DESIGN.md)                                                           | Tokens, mobile-first shell (tab bar / detail / focus pages), components, screens, SRS study flow, UX rules, voice |
-| Coding Standard    | [docs/engineering/CODING-STANDARD.md](docs/engineering/CODING-STANDARD.md)       | Conventions, comments, constants/enums, logging, data-access rules                                                |
-| Rendering Standard | [docs/engineering/RENDERING-STANDARD.md](docs/engineering/RENDERING-STANDARD.md) | Donut pattern, SSR/hydration, cacheComponents rules                                                               |
-| Story Board        | [docs/stories/index.html](docs/stories/index.html)                               | Foundation spec: epics, stories, tasks, UX flows, wireframes (static HTML, open in browser)                       |
+| Document           | Path                                     | Scope           |
+| ------------------ | ---------------------------------------- | --------------- |
+| Design Spec        | [DESIGN.md](DESIGN.md)                   | UI, flow, UX    |
+| Coding Standard    | [docs/engineering/CODING-STANDARD.md]    | Code rules      |
+| Rendering Standard | [docs/engineering/RENDERING-STANDARD.md] | Rendering rules |

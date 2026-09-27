@@ -232,6 +232,40 @@ Icons: `lucide-react`, 16 (inline) / 20 (cells, buttons) / 22 (header).
 
 ---
 
+## Farm World & HUD
+
+The farm game (`components/farm/*`) renders a living world over the app shell. It follows every rule above, plus:
+
+### World theming
+
+- Farm scenes are themed by the active tier palette (`FarmTheme` in `lib/game/content/types.ts`): sky/ground gradients, soil tones, accent. The t0 pastel direction is canonical. **Never hard-code hex values in components** — derive with the theme + `shade`/`mix` from `lib/game/art/palette`.
+- Crop art is procedural SVG (`components/farm/art/crop-art.tsx`); silhouettes are chosen by `cropVariant(hanzi)` (stable hash — never `Math.random()`). Decor (sun, clouds, trees, pond, shed, fence) lives in `farm-decor.tsx`; decor positions are set by the parent via `className`, never random.
+
+### Plot states
+
+- The four plot states (fresh / growing / ready / urgent) are the SM-2 schedule rendered visually via `cropStage(schedule, now)` — never add a second state field. `now` comes from the `useClock` store; it is `null` on the server and first paint, so components must render a deterministic fallback.
+
+### Glass HUD
+
+- The HUD floats over the world: top bar, bottom nav, shortcut rail, and floating chips use the `glass` utility (`globals.css`). **Glass is reserved for HUD** — surfaces users read or fill forms in stay `surface` (Sheets keep `bg-surface`).
+
+### Desktop interaction
+
+- Buttons and interactive controls get a pointer cursor and a visible `:focus-visible` ring from the base layer in `globals.css` (Tailwind v4's preflight resets buttons to `cursor: default` — the base rule restores platform-native feel; disabled controls get `cursor-not-allowed`).
+- Every control pairs an `:active` press state with a `:hover` treatment (`hover:brightness-110`, `hover:bg-surface-2`, or `hover:scale-*` per family). Hover is enhancement only — no affordance may exist purely on hover, and touch users never depend on it.
+- Never apply CSS `filter` (brightness/backdrop) to the 3D flip-card container or any `preserve-3d` subtree — filters flatten nested 3D transforms.
+
+### Motion inventory
+
+- Only CSS keyframes from `globals.css`: `sway` (crop idle), `ready-pulse` (harvestable halo), `bug-wiggle` (urgent pest), `cloud-drift` / `float-soft` (sky), `sheet-in` (bottom sheet), `harvest-pop` (reward chip), `seed-drop` (nursery card), `coin-fly` / `leaf-fall` (celebration), `gold-bump` (counter), plus the existing `pop-in`.
+- All collapse under `prefers-reduced-motion: reduce` (the global media query zeroes duration **and delay**). Information (reward math, gold totals) is never carried by an animation that ends at `opacity: 0` with a forwards fill — animations decorate, text states inform.
+
+### Sheets
+
+- `Sheet` (`components/ui/sheet.tsx`) is the phone-form container: bottom sheet on phones, centered panel at `lg`. Native `<dialog>` provides focus trap and Esc.
+
+---
+
 ## Screens & Flows
 
 | Screen            | Route                  | Page type | Notes                                                                          |

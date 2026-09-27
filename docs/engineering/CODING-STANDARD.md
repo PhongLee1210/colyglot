@@ -1,21 +1,5 @@
 # Coding Standard
 
-Coding conventions — how code is written, commented, and structured in colyglot.
-
-## Coding Conventions
-
-- Follow conventions present in `app/`, `components/`, and `lib/`.
-- Business logic (scheduling, streak derivation, content transforms) belongs in `lib/` or `packages/*` — UI components compose it, they don't implement it.
-- Data access happens exclusively through the Drizzle repositories in `lib/db/repositories/` (server-only). Server Components and server actions call repositories directly; client components go through a server action or route handler — never the data layer.
-- Every repository function takes a required `userId` as its first argument, obtained only from the session (`requireUserId()`); id lookups verify ownership through `decks.user_id` / `study_sessions.user_id`, and foreign rows are indistinguishable from missing ones (`undefined` / `false`). Never accept `userId` from client input.
-- Reuse UI primitives from `components/ui/` (Button, Card, Input, Dialog, Toast, EmptyState, Skeleton, ErrorInline).
-- Favor explicit types; do not use `any`.
-- Keep all functions and components focused and minimal; avoid duplication.
-- Do not add dependencies without justification — the stack is deliberately lean (Bun, Next.js, Drizzle, Tailwind v4). Prefer platform APIs (Pointer Events, Web Speech, MediaRecorder) over libraries.
-- Formatting is managed by Prettier (`.prettierrc`).
-- Keep changes focused; do not combine unrelated refactoring.
-- IF the same set of Tailwind utility classes is repeated across 3+ usages, extract it into a reusable component or a `cva`/`class-variance-authority` variant instead of copy-pasting the class string.
-
 ### Comments and Code Documentation
 
 Write code that is self-explanatory through clear naming, small functions, and good module organization. Prefer improving the code over adding comments.
