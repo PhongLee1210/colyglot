@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { computeStreak, toUtcDayKey } from "../streak";
+import {
+  computeStreak,
+  msUntilNextUtcDay,
+  startOfUtcDay,
+  toUtcDayKey,
+} from "../streak";
 
 const NOW = new Date("2026-09-24T15:00:00Z");
 
@@ -42,5 +47,21 @@ describe("computeStreak", () => {
       toUtcDayKey(new Date(NOW.getTime() - index * 24 * 60 * 60 * 1000))
     );
     expect(computeStreak(days, NOW)).toBe(7);
+  });
+});
+
+describe("UTC day boundaries", () => {
+  test("startOfUtcDay truncates to midnight UTC", () => {
+    expect(startOfUtcDay(NOW).toISOString()).toBe("2026-09-24T00:00:00.000Z");
+  });
+
+  test("msUntilNextUtcDay counts down to the next UTC midnight", () => {
+    expect(msUntilNextUtcDay(NOW)).toBe(9 * 60 * 60 * 1000);
+  });
+
+  test("msUntilNextUtcDay is a full day exactly at midnight", () => {
+    expect(msUntilNextUtcDay(new Date("2026-09-24T00:00:00.000Z"))).toBe(
+      24 * 60 * 60 * 1000
+    );
   });
 });

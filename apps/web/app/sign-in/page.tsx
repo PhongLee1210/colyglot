@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Suspense } from "react";
 
 import { SignInForm } from "@/components/auth/sign-in-form";
@@ -17,11 +18,15 @@ export default function SignInPage() {
       >
         學
       </span>
-      <div className="relative flex flex-col items-center gap-3 animate-[stagger-in_360ms_cubic-bezier(0.22,1,0.36,1)_both]">
-        <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 text-xl font-extrabold text-on-primary dark:from-primary-400 dark:to-primary-600">
-          C
-        </span>
-        <span className="text-sm font-semibold tracking-tight">Colyglot</span>
+      <div className="relative flex flex-col items-center animate-[stagger-in_360ms_cubic-bezier(0.22,1,0.36,1)_both]">
+        <Image
+          src="/logo.png"
+          alt="Colyglot"
+          width={1092}
+          height={929}
+          priority
+          className="h-16 w-auto"
+        />
       </div>
       <div className="relative flex flex-col items-center gap-1 text-center animate-[stagger-in_360ms_cubic-bezier(0.22,1,0.36,1)_60ms_both]">
         <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>

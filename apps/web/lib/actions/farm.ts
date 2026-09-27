@@ -1,0 +1,149 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import { requireUserId } from "@/lib/auth/session";
+import {
+  claimSessionHarvest,
+  expandFarmBed,
+  getFarmWorld,
+  plantSeeds,
+  startFarmWorld,
+  type ClaimHarvestResult,
+  type PlantSeedsResult,
+} from "@/lib/db/repositories/farm";
+import {
+  getDueQueueForLang,
+  openStudySession,
+} from "@/lib/db/repositories/study";
+import { LANG_PACKS, langsFromKey } from "@/lib/game/content";
+import type { SeedWord } from "@/lib/game/content/types";
+import type { HarvestCard } from "@/lib/game/types";
+import type { ActionResult } from "./types";
+
+function toMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Something went wrong";
+}
+
+export async function startWorldAction(
+  langKey: string
+): Promise<ActionResult<{ langKey: string }>> {
+  const userId = await requireUserId();
+  const pack = LANG_PACKS[langKey];
+  if (!pack) {
+    return { ok: false, error: "Unknown language" };
+  }
+  try {
+    const world = await startFarmWorld(userId, {
+      langKey,
+      sourceLang: pack.sourceLang,
+      targetLang: pack.targetLang,
+      worldName: pack.name,
+      bedName: `${pack.name} garden`,
+    });
+    if (!world) {
+      return { ok: false, error: "Could not start farm" };
+    }
+    revalidatePath("/");
+    return { ok: true, data: { langKey } };
+  } catch (error) {
+    return { ok: false, error: toMessage(error) };
+  }
+}
+
+export async function plantSeedsAction(
+  langKey: string,
+  bedId: string,
+  hanziList: string[]
+): Promise<ActionResult<PlantSeedsResult>> {
+  const userId = await requireUserId();
+  const pack = LANG_PACKS[langKey];
+  if (!pack) {
+    return { ok: false, error: "Unknown language" };
+  }
+  const wanted = new Set(hanziList);
+  const words: SeedWord[] = pack.packs
+    .flatMap((seedPack) => seedPack.words)
+    .filter((word) => wanted.has(word.hanzi));
+  try {
+    const result = await plantSeeds(userId, langKey, bedId, words);
+    if (!result) {
+      return { ok: false, error: "Bed not found" };
+    }
+    revalidatePath("/");
+    return { ok: true, data: result };
+  } catch (error) {
+    return { ok: false, error: toMessage(error) };
+  }
+}
+
+export async function expandBedAction(
+  bedId: string
+): Promise<ActionResult<{ plotCount: number; gold: number }>> {
+  const userId = await requireUserId();
+  try {
+    const result = await expandFarmBed(userId, bedId);
+    if (result === undefined) {
+      return { ok: false, error: "Bed not found" };
+    }
+    if (result === "insufficient") {
+      return { ok: false, error: "Not enough gold" };
+    }
+    revalidatePath("/");
+    return { ok: true, data: result };
+  } catch (error) {
+    return { ok: false, error: toMessage(error) };
+  }
+}
+
+export async function claimHarvestAction(
+  sessionId: string,
+  langKey: string
+): Promise<ActionResult<ClaimHarvestResult>> {
+  const userId = await requireUserId();
+  try {
+    const result = await claimSessionHarvest(userId, sessionId, langKey);
+    if (!result) {
+      return { ok: false, error: "Nothing to claim" };
+    }
+    revalidatePath("/");
+    return { ok: true, data: result };
+  } catch (error) {
+    return { ok: false, error: toMessage(error) };
+  }
+}
+
+export async function openHarvestAction(
+  langKey: string
+): Promise<ActionResult<{ sessionId: string; queue: HarvestCard[] }>> {
+  const userId = await requireUserId();
+  const langs = langsFromKey(langKey);
+  const world = await getFarmWorld(userId, langKey);
+  if (!langs || !world) {
+    return { ok: false, error: "Farm not found" };
+  }
+  try {
+    const session = await openStudySession(userId);
+    const queue = await getDueQueueForLang(
+      userId,
+      langs.sourceLang,
+      langs.targetLang
+    );
+    return {
+      ok: true,
+      data: {
+        sessionId: session.id,
+        queue: queue.map((item) => ({
+          cardId: item.card.id,
+          hanzi: item.card.hanzi,
+          pinyin: item.card.pinyin,
+          translation: item.card.translation,
+          examples: item.card.examples,
+          fresh: item.schedule === null,
+        })),
+      },
+    };
+  } catch (error) {
+    return { ok: false, error: toMessage(error) };
+  }
+}

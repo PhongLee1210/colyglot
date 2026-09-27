@@ -34,6 +34,16 @@ export function isValidReviewGrade(grade: number): grade is ReviewGrade {
   );
 }
 
+export { levelFromXp, XP_PER_LEVEL } from "@/lib/xp";
+
+export const XP_BY_GRADE: Record<ReviewGrade, number> = {
+  [ReviewGrade.FORGOT]: 2,
+  [ReviewGrade.HARD]: 5,
+  [ReviewGrade.GOOD]: 10,
+  [ReviewGrade.EASY]: 12,
+  [ReviewGrade.PERFECT]: 12,
+};
+
 export type CardExample = {
   hanzi: string;
   pinyin: string;
@@ -132,6 +142,8 @@ export const reviewLogs = pgTable(
       .notNull()
       .references(() => studySessions.id, { onDelete: "cascade" }),
     grade: integer("grade").notNull(),
+    // Memory strength at harvest time (pre-review interval); 0 for legacy rows.
+    intervalDaysBefore: integer("interval_days_before").notNull().default(0),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -164,6 +176,151 @@ export const cardRecordings = pgTable(
   ]
 );
 
+export const deckProgress = pgTable(
+  "deck_progress",
+  {
+    deckId: uuid("deck_id")
+      .notNull()
+      .references(() => decks.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    xp: integer("xp").notNull().default(0),
+    level: integer("level").notNull().default(1),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // One progress row per deck; a deck belongs to exactly one user.
+    unique("deck_progress_deck_id_key").on(table.deckId),
+    index("deck_progress_user_id_idx").on(table.userId),
+  ]
+);
+
+export type FarmStats = {
+  planted: number;
+  harvested: number;
+  goldEarned: number;
+};
+
+const DEFAULT_FARM_STATS: FarmStats = {
+  planted: 0,
+  harvested: 0,
+  goldEarned: 0,
+};
+
+export const farmWorlds = pgTable(
+  "farm_worlds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    langKey: text("lang_key").notNull(),
+    tier: integer("tier").notNull().default(0),
+    gold: integer("gold").notNull().default(40),
+    unlockedTechs: jsonb("unlocked_techs")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    buildings: jsonb("buildings")
+      .$type<Record<string, number>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    stats: jsonb("stats")
+      .$type<FarmStats>()
+      .notNull()
+      .default(DEFAULT_FARM_STATS),
+    wonderProgress: jsonb("wonder_progress")
+      .$type<Record<string, number>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // One farm per user per language pair.
+    unique("farm_worlds_user_lang_key").on(table.userId, table.langKey),
+    index("farm_worlds_user_id_idx").on(table.userId),
+  ]
+);
+
+export const farmBeds = pgTable(
+  "farm_beds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => farmWorlds.id, { onDelete: "cascade" }),
+    deckId: uuid("deck_id")
+      .notNull()
+      .references(() => decks.id, { onDelete: "cascade" }),
+    plotCount: integer("plot_count").notNull().default(6),
+    position: integer("position").notNull(),
+  },
+  (table) => [
+    unique("farm_beds_world_position_key").on(table.worldId, table.position),
+    // A deck can be a bed of at most one world.
+    unique("farm_beds_deck_id_key").on(table.deckId),
+  ]
+);
+
+export const farmPlots = pgTable(
+  "farm_plots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bedId: uuid("bed_id")
+      .notNull()
+      .references(() => farmBeds.id, { onDelete: "cascade" }),
+    slotIndex: integer("slot_index").notNull(),
+    cardId: uuid("card_id").references(() => cards.id, {
+      onDelete: "cascade",
+    }),
+    plantedAt: timestamp("planted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    variant: integer("variant").notNull().default(0),
+  },
+  (table) => [
+    unique("farm_plots_bed_slot_key").on(table.bedId, table.slotIndex),
+    // One card lives in at most one plot (Postgres allows multiple NULLs).
+    unique("farm_plots_card_id_key").on(table.cardId),
+  ]
+);
+
+export const farmItems = pgTable(
+  "farm_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => farmWorlds.id, { onDelete: "cascade" }),
+    itemKey: text("item_key").notNull(),
+    qty: integer("qty").notNull().default(0),
+  },
+  (table) => [
+    unique("farm_items_world_item_key").on(table.worldId, table.itemKey),
+  ]
+);
+
+export const farmHarvestClaims = pgTable(
+  "farm_harvest_claims",
+  {
+    sessionId: uuid("session_id")
+      .primaryKey()
+      .references(() => studySessions.id, { onDelete: "cascade" }),
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => farmWorlds.id, { onDelete: "cascade" }),
+    goldAwarded: integer("gold_awarded").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("farm_harvest_claims_world_id_idx").on(table.worldId)]
+);
+
 export type Deck = typeof decks.$inferSelect;
 export type NewDeck = typeof decks.$inferInsert;
 export type Card = typeof cards.$inferSelect;
@@ -172,3 +329,9 @@ export type CardSchedule = typeof cardSchedules.$inferSelect;
 export type StudySession = typeof studySessions.$inferSelect;
 export type ReviewLog = typeof reviewLogs.$inferSelect;
 export type CardRecording = typeof cardRecordings.$inferSelect;
+export type DeckProgress = typeof deckProgress.$inferSelect;
+export type FarmWorld = typeof farmWorlds.$inferSelect;
+export type FarmBed = typeof farmBeds.$inferSelect;
+export type FarmPlot = typeof farmPlots.$inferSelect;
+export type FarmItem = typeof farmItems.$inferSelect;
+export type FarmHarvestClaim = typeof farmHarvestClaims.$inferSelect;

@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -37,6 +38,7 @@ const toneStyles: Record<ToastTone, string> = {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(0);
+  const regionRef = useRef<HTMLDivElement>(null);
 
   const toast = useCallback((message: string, tone: ToastTone = "info") => {
     const id = nextId.current++;
@@ -46,12 +48,31 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, TOAST_DURATION_MS);
   }, []);
 
+  // Sheets are native <dialog>s in the browser's top layer, which plain
+  // z-index can't rise above. Promoting the region to a manual popover puts
+  // it in the top layer too — after any open dialog — while degrading to
+  // plain fixed positioning on browsers without the Popover API.
+  useEffect(() => {
+    const region = regionRef.current;
+    if (!region || typeof region.showPopover !== "function") {
+      return;
+    }
+    if (toasts.length > 0 && !region.matches(":popover-open")) {
+      region.showPopover();
+    }
+    if (toasts.length === 0 && region.matches(":popover-open")) {
+      region.hidePopover();
+    }
+  }, [toasts.length]);
+
   const value = useMemo(() => ({ toast }), [toast]);
 
   return (
     <ToastContext.Provider value={value}>
       {children}
       <div
+        ref={regionRef}
+        popover="manual"
         aria-live="polite"
         className="pointer-events-none fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom),16px)] z-50 flex flex-col items-center gap-2 px-4"
       >

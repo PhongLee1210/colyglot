@@ -91,6 +91,11 @@
   --accent: #eab308;
   --on-accent: #3a2e00;
   --grain-opacity: 0.032;
+
+  --glass: rgb(255 255 255 / 0.55);
+  --glass-strong: rgb(255 255 255 / 0.72);
+  --glass-border: rgb(255 255 255 / 0.45);
+  --glass-shadow: 0 8px 24px rgb(30 41 59 / 0.12);
 }
 
 [data-theme="dark"] {
@@ -148,6 +153,10 @@
   --accent: #eec52b;
   --on-accent: #332a00;
   --grain-opacity: 0.05;
+
+  --glass: rgb(21 28 36 / 0.6);
+  --glass-strong: rgb(21 28 36 / 0.78);
+  --glass-border: rgb(255 255 255 / 0.12);
 }
 
 @theme inline {
@@ -166,6 +175,9 @@
   --color-warning: var(--warning);
   --color-accent: var(--accent);
   --color-on-accent: var(--on-accent);
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-glass-border: var(--glass-border);
 
   --color-primary-50: var(--primary-50);
   --color-primary-100: var(--primary-100);
@@ -263,6 +275,32 @@
   ::selection {
     background-color: color-mix(in srgb, var(--primary) 25%, transparent);
   }
+
+  /* Tailwind v4 preflight pins buttons to cursor: default; restore the
+     pointer so desktop controls read as clickable, and give every
+     focusable control a visible keyboard focus ring. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+@utility glass {
+  background-color: var(--glass);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 @utility perspective-card {
@@ -362,11 +400,153 @@
   }
 }
 
+/* Crop idle motion: gentle sway anchored at the stem base. */
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2.5deg);
+  }
+}
+
+/* Ready-to-harvest halo: expanding ring that fades out. */
+@keyframes ready-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--pulse-color, rgb(255 255 255 / 0.55));
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+/* Urgent pest: small irritated wiggle. */
+@keyframes bug-wiggle {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-1.5px) rotate(-6deg);
+  }
+  75% {
+    transform: translateX(1.5px) rotate(6deg);
+  }
+}
+
+/* Sky decor drifts; negative animation-delay offsets stagger the loop. */
+@keyframes cloud-drift {
+  0%,
+  100% {
+    transform: translateX(-4%);
+  }
+  50% {
+    transform: translateX(4%);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Bottom sheet slides up from the screen edge. */
+@keyframes sheet-in {
+  from {
+    transform: translateY(60%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Harvest reward pops out of the crop. */
+@keyframes harvest-pop {
+  0% {
+    transform: scale(0.4) translateY(6px);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15) translateY(-6px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(-14px);
+    opacity: 0;
+  }
+}
+
+/* New nursery card drops into view like a seed falling. */
+@keyframes seed-drop {
+  0% {
+    transform: translateY(-90%);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(8%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Coins fly toward the HUD gold chip; --coin-x/--coin-y set per coin. */
+@keyframes coin-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--coin-x, 0), var(--coin-y, -40vh)) scale(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes leaf-fall {
+  0% {
+    transform: translateY(-8vh) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(105vh) rotate(340deg);
+    opacity: 0;
+  }
+}
+
+/* Gold counter bumps when the authoritative total lands. */
+@keyframes gold-bump {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.22);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }

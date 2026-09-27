@@ -318,4 +318,32 @@ describeIntegration("data layer round-trip", () => {
     expect(summary?.cardsReviewed).toBe(2);
     expect(summary?.endedAt).not.toBeNull();
   });
+
+  test("appendReviewLog snapshots the pre-review interval", async () => {
+    const { card } = await createDeckWithCard("间隔");
+    const session = await openStudySession(USER_ID);
+    await upsertCardSchedule(USER_ID, card.id, {
+      easeFactor: 2.5,
+      intervalDays: 6,
+      dueAt: new Date(),
+      reviewCount: 2,
+      consecutiveCorrect: 2,
+      lapses: 0,
+      lastReviewedAt: null,
+    });
+    const log = await appendReviewLog(USER_ID, {
+      cardId: card.id,
+      sessionId: session.id,
+      grade: ReviewGrade.GOOD,
+      intervalDaysBefore: 6,
+    });
+    expect(log!.intervalDaysBefore).toBe(6);
+
+    const legacy = await appendReviewLog(USER_ID, {
+      cardId: card.id,
+      sessionId: session.id,
+      grade: ReviewGrade.GOOD,
+    });
+    expect(legacy!.intervalDaysBefore).toBe(0);
+  });
 });

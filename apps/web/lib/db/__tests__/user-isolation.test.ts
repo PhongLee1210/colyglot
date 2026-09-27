@@ -27,9 +27,14 @@ import {
   updateCard,
 } from "../repositories/content";
 import {
+  addDeckXpForCard,
+  listDeckProgress,
+} from "../repositories/deck-progress";
+import {
   appendReviewLog,
   closeStudySession,
   countDueCardsByDeck,
+  countReviewsSince,
   getCardSchedule,
   getCurrentStreak,
   getDueQueue,
@@ -66,7 +71,7 @@ describeIntegration("user isolation", () => {
   });
 
   beforeEach(async () => {
-    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings cascade`;
+    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, deck_progress cascade`;
   });
 
   test("user B never sees user A's decks and cards", async () => {
@@ -173,6 +178,29 @@ describeIntegration("user isolation", () => {
     expect(await getCurrentStreak(USER_B)).toBe(0);
   });
 
+  test("today's review count includes only the user's own reviews", async () => {
+    const { card } = await createOwnedDeckWithCard();
+    const session = await openStudySession(USER_A);
+    const startOfTest = new Date(Date.now() - 60_000);
+
+    await appendReviewLog(USER_A, {
+      cardId: card.id,
+      sessionId: session.id,
+      grade: ReviewGrade.GOOD,
+    });
+    await appendReviewLog(USER_A, {
+      cardId: card.id,
+      sessionId: session.id,
+      grade: ReviewGrade.FORGOT,
+    });
+
+    expect(await countReviewsSince(USER_A, startOfTest)).toBe(2);
+    expect(await countReviewsSince(USER_B, startOfTest)).toBe(0);
+    expect(await countReviewsSince(USER_A, new Date(Date.now() + 60_000))).toBe(
+      0
+    );
+  });
+
   test("user B cannot read or write user A's card recording", async () => {
     const { card } = await createOwnedDeckWithCard();
 
@@ -193,6 +221,25 @@ describeIntegration("user isolation", () => {
 
     const recording = await getCardRecording(USER_A, card.id);
     expect(recording?.storagePath).toBe("takes/user-a/take.webm");
+  });
+
+  test("deck XP accrues across reviews and levels up on the 100-xp curve", async () => {
+    const { deck, card } = await createOwnedDeckWithCard();
+
+    const firstAward = await addDeckXpForCard(USER_A, card.id, 10);
+    expect(firstAward).toMatchObject({ deckId: deck.id, xp: 10, level: 1 });
+
+    await addDeckXpForCard(USER_A, card.id, 90);
+    const leveledUp = await listDeckProgress(USER_A);
+    expect(leveledUp).toHaveLength(1);
+    expect(leveledUp[0]).toMatchObject({ deckId: deck.id, xp: 100, level: 2 });
+  });
+
+  test("user B cannot award or read XP for user A's decks", async () => {
+    const { card } = await createOwnedDeckWithCard();
+
+    expect(await addDeckXpForCard(USER_B, card.id, 10)).toBeUndefined();
+    expect(await listDeckProgress(USER_A)).toEqual([]);
   });
 
   test("schema enforces ownership columns", async () => {

@@ -1,15 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getDevBypassUserId } from "@/lib/auth/dev-bypass";
 import { safeNextPath } from "@/lib/auth/next-path";
 
 const SIGN_IN_PATH = "/sign-in";
 
-function isPublicPath(pathname: string): boolean {
+function isPublicPath(pathname: string, hasLangParam: boolean): boolean {
+  if (pathname === "/") {
+    return !hasLangParam;
+  }
   return pathname === SIGN_IN_PATH || pathname.startsWith("/auth");
 }
 
 export default async function proxy(request: NextRequest) {
+  if (getDevBypassUserId()) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -40,8 +48,9 @@ export default async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname, search } = request.nextUrl;
+  const hasLangParam = request.nextUrl.searchParams.has("lang");
 
-  if (!user && !isPublicPath(pathname)) {
+  if (!user && !isPublicPath(pathname, hasLangParam)) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = SIGN_IN_PATH;
     redirectUrl.search = "";

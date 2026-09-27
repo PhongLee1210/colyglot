@@ -1,4 +1,5 @@
 import { ChevronLeft } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 
@@ -30,13 +31,15 @@ export function AppShell({
             <ChevronLeft className="size-5" aria-hidden />
           </Link>
         ) : (
-          <Link href="/" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 text-sm font-extrabold text-on-primary dark:from-primary-400 dark:to-primary-600 dark:text-on-primary">
-              C
-            </span>
-            <span className="text-sm font-semibold tracking-tight">
-              Colyglot
-            </span>
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/logo.png"
+              alt="Colyglot"
+              width={1092}
+              height={929}
+              priority
+              className="h-8 w-auto"
+            />
           </Link>
         )}
         {title ? (

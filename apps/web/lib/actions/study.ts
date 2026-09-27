@@ -1,10 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { review } from "@colyglot/srs";
 
 import { requireUserId } from "@/lib/auth/session";
+import { addDeckXpForCard } from "@/lib/db/repositories/deck-progress";
 import {
   appendReviewLog,
   closeStudySession,
@@ -12,13 +11,15 @@ import {
   openStudySession,
   upsertCardSchedule,
 } from "@/lib/db/repositories/study";
-import { ReviewGrade } from "@/lib/db/schema";
+import { ReviewGrade, XP_BY_GRADE } from "@/lib/db/schema";
+import { harvestPreview, type HarvestPreview } from "@/lib/game/core/economy";
 import type { ActionResult } from "./types";
 
 export type GradeResult = {
   intervalDays: number;
   dueAt: string;
   requeued: boolean;
+  goldPreview: HarvestPreview;
 };
 
 export async function startStudySessionAction(): Promise<ActionResult<string>> {
@@ -66,16 +67,24 @@ export async function gradeCardAction(
     if (!upserted) {
       return { ok: false, error: "Card not found" };
     }
-    const log = await appendReviewLog(userId, { cardId, sessionId, grade });
+    const intervalDaysBefore = current?.intervalDays ?? 0;
+    const log = await appendReviewLog(userId, {
+      cardId,
+      sessionId,
+      grade,
+      intervalDaysBefore,
+    });
     if (!log) {
       return { ok: false, error: "Session not found" };
     }
+    await addDeckXpForCard(userId, cardId, XP_BY_GRADE[grade]);
     return {
       ok: true,
       data: {
         intervalDays: next.intervalDays,
         dueAt: next.dueAt.toISOString(),
         requeued: grade < ReviewGrade.GOOD,
+        goldPreview: harvestPreview(intervalDaysBefore, grade),
       },
     };
   } catch (error) {
@@ -103,10 +112,4 @@ export async function finishSessionAction(
       error: error instanceof Error ? error.message : "Could not close session",
     };
   }
-}
-
-export async function revalidateDeckAction(deckId: string): Promise<void> {
-  await requireUserId();
-  revalidatePath(`/decks/${deckId}`);
-  revalidatePath("/");
 }

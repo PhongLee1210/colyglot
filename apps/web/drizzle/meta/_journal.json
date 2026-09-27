@@ -15,6 +15,20 @@
       "when": 1790266332190,
       "tag": "0001_condemned_magdalene",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790410465765,
+      "tag": "0002_chief_kylun",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790480826818,
+      "tag": "0003_stale_thing",
+      "breakpoints": true
     }
   ]
 }

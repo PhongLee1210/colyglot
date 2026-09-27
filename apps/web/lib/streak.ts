@@ -4,6 +4,14 @@ export function toUtcDayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function startOfUtcDay(date: Date): Date {
+  return new Date(`${toUtcDayKey(date)}T00:00:00.000Z`);
+}
+
+export function msUntilNextUtcDay(now: Date): number {
+  return startOfUtcDay(now).getTime() + DAY_MS - now.getTime();
+}
+
 export function computeStreak(dayKeys: Iterable<string>, now: Date): number {
   const days = new Set(dayKeys);
   const today = toUtcDayKey(now);

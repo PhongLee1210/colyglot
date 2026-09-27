@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 
 import { computeStreak } from "@/lib/streak";
 import { getDb } from "../index";
@@ -41,6 +41,8 @@ export type AppendReviewLogInput = {
   cardId: string;
   sessionId: string;
   grade: ReviewGrade;
+  // Pre-review memory strength for the farm economy; 0 for legacy callers.
+  intervalDaysBefore?: number;
 };
 
 function dueCondition() {
@@ -71,6 +73,117 @@ export async function getDueQueue(
       asc(cards.createdAt)
     )
     .limit(limit);
+}
+
+function langCondition(sourceLang: string, targetLang: string) {
+  return and(
+    eq(decks.sourceLang, sourceLang),
+    eq(decks.targetLang, targetLang)
+  );
+}
+
+export async function getDueQueueForLang(
+  userId: string,
+  sourceLang: string,
+  targetLang: string,
+  limit: number = DEFAULT_DUE_QUEUE_LIMIT
+): Promise<DueQueueItem[]> {
+  return getDb()
+    .select({ card: cards, schedule: cardSchedules })
+    .from(cards)
+    .innerJoin(decks, eq(cards.deckId, decks.id))
+    .leftJoin(cardSchedules, eq(cardSchedules.cardId, cards.id))
+    .where(
+      and(
+        eq(decks.userId, userId),
+        langCondition(sourceLang, targetLang),
+        dueCondition()
+      )
+    )
+    .orderBy(
+      asc(sql`${cardSchedules.dueAt} is null`),
+      asc(cardSchedules.dueAt),
+      asc(cards.createdAt)
+    )
+    .limit(limit);
+}
+
+export async function countDueForLang(
+  userId: string,
+  sourceLang: string,
+  targetLang: string
+): Promise<number> {
+  const [row] = await getDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(cards)
+    .innerJoin(decks, eq(cards.deckId, decks.id))
+    .leftJoin(cardSchedules, eq(cardSchedules.cardId, cards.id))
+    .where(
+      and(
+        eq(decks.userId, userId),
+        langCondition(sourceLang, targetLang),
+        dueCondition()
+      )
+    );
+  return row?.total ?? 0;
+}
+
+export async function countFreshForLang(
+  userId: string,
+  sourceLang: string,
+  targetLang: string
+): Promise<number> {
+  const [row] = await getDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(cards)
+    .innerJoin(decks, eq(cards.deckId, decks.id))
+    .leftJoin(cardSchedules, eq(cardSchedules.cardId, cards.id))
+    .where(
+      and(
+        eq(decks.userId, userId),
+        langCondition(sourceLang, targetLang),
+        isNull(cardSchedules.cardId)
+      )
+    );
+  return row?.total ?? 0;
+}
+
+export const FRESH_QUEUE_LIMIT = 20;
+
+export async function listFreshForLang(
+  userId: string,
+  sourceLang: string,
+  targetLang: string,
+  limit: number
+): Promise<Card[]> {
+  return getDb()
+    .select({ card: cards })
+    .from(cards)
+    .innerJoin(decks, eq(cards.deckId, decks.id))
+    .leftJoin(cardSchedules, eq(cardSchedules.cardId, cards.id))
+    .where(
+      and(
+        eq(decks.userId, userId),
+        langCondition(sourceLang, targetLang),
+        isNull(cardSchedules.cardId)
+      )
+    )
+    .orderBy(asc(cards.createdAt))
+    .limit(limit)
+    .then((rows) => rows.map((row) => row.card));
+}
+
+export async function listCardSchedulesForDeck(
+  userId: string,
+  deckId: string
+): Promise<CardSchedule[]> {
+  return getDb()
+    .select({ schedule: cardSchedules })
+    .from(cardSchedules)
+    .innerJoin(cards, eq(cardSchedules.cardId, cards.id))
+    .innerJoin(decks, eq(cards.deckId, decks.id))
+    .where(and(eq(decks.userId, userId), eq(decks.id, deckId)))
+    .then((rows) => rows.map((row) => row.schedule));
 }
 
 export async function countDueCardsByDeck(
@@ -174,7 +287,10 @@ export async function appendReviewLog(
   if (!cardOwned || !session) {
     return undefined;
   }
-  const [log] = await getDb().insert(reviewLogs).values(input).returning();
+  const [log] = await getDb()
+    .insert(reviewLogs)
+    .values({ ...input, intervalDaysBefore: input.intervalDaysBefore ?? 0 })
+    .returning();
   return log;
 }
 
@@ -208,6 +324,20 @@ export async function getCurrentStreak(
     rows.map((row) => row.day),
     now
   );
+}
+
+export async function countReviewsSince(
+  userId: string,
+  since: Date
+): Promise<number> {
+  const [row] = await getDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(reviewLogs)
+    .innerJoin(studySessions, eq(reviewLogs.sessionId, studySessions.id))
+    .where(
+      and(eq(studySessions.userId, userId), gte(reviewLogs.reviewedAt, since))
+    );
+  return row?.total ?? 0;
 }
 
 export type SessionReviewSummary = {

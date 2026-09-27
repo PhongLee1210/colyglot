@@ -57,3 +57,4 @@ apps/web/e2e/.auth/
 
 # agent tooling
 .serena/
+.agents/
