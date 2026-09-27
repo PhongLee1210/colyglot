@@ -10,6 +10,9 @@ export default defineConfig({
     baseURL: "http://localhost:3117",
     hasTouch: true,
     viewport: { width: 430, height: 932 },
+    // Force the static fallback so e2e never depends on real WebGL — the
+    // 3D scenes are manual-QA territory per the game/3D redesign spec.
+    reducedMotion: "reduce",
   },
   webServer: {
     command: "bun run start --port 3117",
