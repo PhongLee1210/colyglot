@@ -9,6 +9,7 @@ import { expandBedAction, plantSeedsAction } from "@/lib/actions/farm";
 import { LANG_PACKS } from "@/lib/game/content";
 import { expandBedCost } from "@/lib/game/core/economy";
 import { useFarmStore } from "@/lib/game/store/farm-store";
+import { useFxStore } from "@/lib/game/store/fx-store";
 import {
   applyExpand,
   applyPlant,
@@ -77,6 +78,7 @@ export function SeedsPanel({
       );
       if (result.ok && result.data.planted.length > 0) {
         router.refresh();
+        useFxStore.getState().react("wave");
         const plantedCount = result.data.planted.length;
         const waiting = words.length - plantedCount;
         toast(
@@ -136,6 +138,7 @@ export function SeedsPanel({
           )
         );
         router.refresh();
+        useFxStore.getState().react("hop");
         toast(`Bed expanded — ${result.data.plotCount} plots now`, "success");
       } else {
         toast(

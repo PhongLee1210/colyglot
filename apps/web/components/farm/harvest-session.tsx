@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useToast } from "@/components/ui/toast";
 import { claimHarvestAction, openHarvestAction } from "@/lib/actions/farm";
 import { finishSessionAction, gradeCardAction } from "@/lib/actions/study";
+import { cropStage } from "@/lib/game/core/crops";
 import { type HarvestPreview } from "@/lib/game/core/economy";
 import { useFarmStore } from "@/lib/game/store/farm-store";
+import { useFxStore, type HarvestFxInput } from "@/lib/game/store/fx-store";
 import { applyClaim } from "@/lib/game/store/reducers";
 import type { HarvestCard } from "@/lib/game/types";
 import { ReviewGrade } from "@colyglot/srs";
@@ -77,6 +79,15 @@ export function HarvestSession({
   const [nextInterval, setNextInterval] = useState<number | null>(null);
   const [learningStep, setLearningStep] = useState(false);
   const [retried, setRetried] = useState<Set<string>>(new Set());
+  // Card ids that cleared a grade step — the claim only pays for these,
+  // so they are also exactly the crops the farm-side FX should play for.
+  // A ref, because the finish path runs from a timeout whose closure
+  // would otherwise hold a stale Set missing the final graded card.
+  const reviewedIdsRef = useRef<Set<string>>(new Set());
+  const [pendingFx, setPendingFx] = useState<{
+    entries: HarvestFxInput[];
+    goldAwarded: number;
+  } | null>(null);
   const [claim, setClaim] = useState<{
     goldAwarded: number;
     cardsHarvested: number;
@@ -92,6 +103,15 @@ export function HarvestSession({
         reviewed={reviewed}
         streak={streak}
         onDone={() => {
+          // The opaque grading panel is gone with the celebration, so
+          // this is the first moment the farm can actually show the
+          // harvest FX; plot entries were captured pre-claim because
+          // the refresh clears the crops right after.
+          if (pendingFx) {
+            useFxStore
+              .getState()
+              .celebrateHarvest(pendingFx.entries, pendingFx.goldAwarded);
+          }
           router.refresh();
           onClose();
         }}
@@ -179,6 +199,28 @@ export function HarvestSession({
         );
         if (result.ok) {
           hydrate(applyClaim(useFarmStore.getState().snapshot!, result.data));
+          const entries: HarvestFxInput[] = [];
+          useFarmStore.getState().snapshot!.beds.forEach((bed) => {
+            bed.plots.forEach((plot) => {
+              if (
+                plot.cardId &&
+                plot.hanzi &&
+                reviewedIdsRef.current.has(plot.cardId)
+              ) {
+                entries.push({
+                  key: `${bed.id}:${plot.slotIndex}`,
+                  bedId: bed.id,
+                  slotIndex: plot.slotIndex,
+                  hanzi: plot.hanzi,
+                  stage: cropStage(plot.schedule, new Date()),
+                });
+              }
+            });
+          });
+          setPendingFx({
+            entries,
+            goldAwarded: result.data.goldAwarded,
+          });
           setClaim({
             goldAwarded: result.data.goldAwarded,
             cardsHarvested: result.data.cardsHarvested,
@@ -215,6 +257,7 @@ export function HarvestSession({
     setRevealed(false);
     setReviewed(reviewedCount);
     setNextInterval(result.data.intervalDays);
+    reviewedIdsRef.current.add(card.cardId);
     // The claim pays once per card per session, so a retry shows the next
     // step instead of gold — forgetting must never out-earn remembering.
     const isRetry = retried.has(card.cardId);

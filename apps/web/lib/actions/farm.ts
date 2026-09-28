@@ -7,6 +7,7 @@ import {
   claimSessionHarvest,
   expandFarmBed,
   getFarmWorld,
+  loadFarmWorldDetail,
   plantSeeds,
   startFarmWorld,
   type ClaimHarvestResult,
@@ -18,7 +19,7 @@ import {
 } from "@/lib/db/repositories/study";
 import { LANG_PACKS, langsFromKey } from "@/lib/game/content";
 import type { SeedWord } from "@/lib/game/content/types";
-import type { HarvestCard } from "@/lib/game/types";
+import type { FarmWorldSnapshot, HarvestCard } from "@/lib/game/types";
 import type { ActionResult } from "./types";
 
 function toMessage(error: unknown): string {
@@ -145,5 +146,25 @@ export async function openHarvestAction(
     };
   } catch (error) {
     return { ok: false, error: toMessage(error) };
+  }
+}
+
+// Feeds the in-game language switcher: returns the full world snapshot so
+// the client can hydrate its farm store without a page navigation.
+export async function switchWorldAction(
+  langKey: string
+): Promise<ActionResult<FarmWorldSnapshot>> {
+  const userId = await requireUserId();
+  if (!LANG_PACKS[langKey]) {
+    return { ok: false, error: "Unknown language" };
+  }
+  try {
+    const snapshot = await loadFarmWorldDetail(userId, langKey);
+    if (!snapshot) {
+      return { ok: false, error: "Start this farm first" };
+    }
+    return { ok: true, data: snapshot };
+  } catch {
+    return { ok: false, error: "Could not load farm" };
   }
 }

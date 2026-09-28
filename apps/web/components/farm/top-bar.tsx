@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-
+import type { FarmWorldCard } from "@/lib/game/types";
 import { XP_PER_LEVEL, xpIntoLevel } from "@/lib/xp";
 
 import { GameSettings } from "./game-settings";
@@ -14,6 +13,11 @@ export function TopBar({
   level,
   xp,
   streak,
+  worlds,
+  activeLangKey,
+  busyLangKey,
+  onSelectWorld,
+  onOpenWorlds,
 }: {
   flag: string;
   langName: string;
@@ -22,13 +26,21 @@ export function TopBar({
   level: number;
   xp: number;
   streak: number;
+  worlds: FarmWorldCard[];
+  activeLangKey: string | null;
+  busyLangKey: string | null;
+  onSelectWorld: (world: FarmWorldCard) => void;
+  onOpenWorlds: () => void;
 }) {
   const intoLevel = xpIntoLevel(xp);
   return (
     <header className="glass fixed inset-x-3 top-3 z-20 flex items-center justify-between gap-2 rounded-2xl px-4 py-2">
-      <Link
-        href="/"
-        className="flex flex-col rounded-xl px-2 py-0.5 transition hover:bg-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 dark:hover:bg-white/10"
+      <button
+        type="button"
+        aria-label="Switch language"
+        title="Switch language"
+        onClick={onOpenWorlds}
+        className="flex flex-col rounded-xl px-2 py-0.5 text-left transition hover:bg-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 dark:hover:bg-white/10"
       >
         <span className="text-sm font-extrabold leading-tight">
           {flag} {langName}
@@ -36,7 +48,7 @@ export function TopBar({
         <span className="mt-0.5 w-fit rounded-full bg-white/60 px-1.5 text-xs font-bold text-fg-muted dark:bg-black/35">
           {tierName}
         </span>
-      </Link>
+      </button>
       <div className="flex items-center gap-2">
         {/* key={gold} remounts the chip so the bump replays per payout */}
         <span
@@ -62,7 +74,12 @@ export function TopBar({
             />
           </span>
         </span>
-        <GameSettings />
+        <GameSettings
+          worlds={worlds}
+          activeLangKey={activeLangKey}
+          busyLangKey={busyLangKey}
+          onSelectWorld={onSelectWorld}
+        />
       </div>
     </header>
   );

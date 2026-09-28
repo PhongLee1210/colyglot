@@ -12,16 +12,13 @@ test.describe("anonymous access", () => {
     ).toBeVisible();
   });
 
-  test("signed-out title screen shows the language picker with sign-in CTA", async ({
-    page,
-  }) => {
+  test("signed-out bare entry also redirects to /sign-in", async ({ page }) => {
     await page.goto("/");
 
-    await expect(
-      page.getByRole("heading", { name: "Choose your language" })
-    ).toBeVisible();
-    await page.getByRole("button", { name: "Start farm" }).click();
     await expect(page).toHaveURL(/\/sign-in/);
+    await expect(
+      page.getByRole("heading", { name: "Welcome back" })
+    ).toBeVisible();
   });
 
   test("callback rejects off-site next targets", async ({ page }) => {

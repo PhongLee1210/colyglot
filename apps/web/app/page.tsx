@@ -1,10 +1,6 @@
-import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { FarmGameScreen } from "@/components/farm/farm-game-screen";
-import { TitleScreen } from "@/components/farm/title-screen";
-import { Skeleton } from "@/components/ui/skeleton";
-import { loadTitleScreenData } from "@/lib/queries/title-page";
 
 export default async function HomePage({
   searchParams,
@@ -14,18 +10,18 @@ export default async function HomePage({
   const params = await searchParams;
 
   return (
-    <Suspense fallback={<Skeleton className="m-4 h-64 rounded-2xl" />}>
-      {params.lang ? (
-        <FarmGameScreen langKey={params.lang} />
-      ) : (
-        <TitleScreenLoader />
-      )}
+    <Suspense fallback={<BootFallback />}>
+      <FarmGameScreen langKey={params.lang} />
     </Suspense>
   );
 }
 
-async function TitleScreenLoader() {
-  await connection();
-  const data = await loadTitleScreenData();
-  return <TitleScreen data={data} />;
+function BootFallback() {
+  return (
+    <div className="flex h-dvh items-center justify-center bg-gradient-to-b from-sky-300 via-sky-200 to-emerald-400">
+      <span aria-hidden="true" className="animate-pulse text-6xl">
+        🌱
+      </span>
+    </div>
+  );
 }

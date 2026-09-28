@@ -58,3 +58,13 @@ export type FarmWorldSnapshot = {
   xp: number;
   level: number;
 };
+
+export type FarmWorldCard = {
+  langKey: string;
+  name: string;
+  flag: string;
+  tierName: string;
+  gold: number;
+  dueCount: number;
+  started: boolean;
+};

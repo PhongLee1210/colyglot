@@ -10,11 +10,22 @@ import {
   onMusicPersist,
   useMusicStore,
 } from "@/lib/game/store/music-store";
+import type { FarmWorldCard } from "@/lib/game/types";
 
 const iconButtonClass =
   "flex size-9 items-center justify-center rounded-full bg-white/40 text-fg transition hover:bg-white/60 active:scale-95 dark:bg-black/25 dark:hover:bg-black/40";
 
-export function GameSettings() {
+export function GameSettings({
+  worlds,
+  activeLangKey,
+  busyLangKey,
+  onSelectWorld,
+}: {
+  worlds: FarmWorldCard[];
+  activeLangKey: string | null;
+  busyLangKey: string | null;
+  onSelectWorld: (world: FarmWorldCard) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const volume = useMusicStore((state) => state.volume);
@@ -54,6 +65,44 @@ export function GameSettings() {
         modal={false}
       >
         <section className="flex flex-col gap-4">
+          <div>
+            <h3 className="mb-3 text-sm font-bold">Language</h3>
+            <div className="flex flex-col gap-2">
+              {worlds.map((world) => {
+                const active = world.langKey === activeLangKey;
+                const busy = busyLangKey === world.langKey;
+                return (
+                  <div
+                    key={world.langKey}
+                    className="flex items-center justify-between gap-2 rounded-xl bg-white/40 px-3 py-2 dark:bg-black/25"
+                  >
+                    <span className="text-sm font-bold">
+                      {world.flag} {world.name}
+                    </span>
+                    {active ? (
+                      <span className="text-xs font-bold text-fg-muted">
+                        Playing
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        data-testid={`settings-world-${world.langKey}`}
+                        className="rounded-full bg-primary px-3.5 py-1 text-xs font-bold text-on-primary transition hover:bg-primary-700 active:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-primary-500"
+                        disabled={busyLangKey !== null}
+                        onClick={() => onSelectWorld(world)}
+                      >
+                        {busy
+                          ? "Switching…"
+                          : world.started
+                            ? "Switch"
+                            : "Start"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <div>
             <h3 className="mb-3 text-sm font-bold">Music</h3>
             <div className="flex items-center gap-3">
