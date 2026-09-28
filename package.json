@@ -12,10 +12,26 @@
     "lint": "turbo run lint",
     "start": "turbo run start",
     "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
     "typecheck": "turbo run typecheck",
+    "boundaries": "turbo boundaries",
+    "ci": "turbo run lint typecheck test test:e2e --continue && turbo boundaries",
     "format": "prettier --write .",
     "prepare": "husky"
   },
+  "catalog": {
+    "@types/bun": "^1.4.2",
+    "eslint": "^9.39.5",
+    "typescript": "^5.9.3"
+  },
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
@@ -26,8 +42,5 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css,md}": "prettier --write"
   },
-  "packageManager": "bun@1.3.7",
-  "dependencies": {
-    "lucide-react": "^1.48.0"
-  }
+  "packageManager": "bun@1.3.7"
 }

@@ -7,11 +7,15 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "lint": "eslint .",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.2",
-    "typescript": "^5"
+    "@colyglot/eslint-config": "workspace:*",
+    "@colyglot/typescript-config": "workspace:*",
+    "@types/bun": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:"
   }
 }
