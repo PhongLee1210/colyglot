@@ -29,6 +29,14 @@ export const GRADE_GOLD_MULTIPLIER: Record<ReviewGrade, number> = {
   [ReviewGrade.PERFECT]: 1.5,
 };
 
+export const XP_BY_GRADE: Record<ReviewGrade, number> = {
+  [ReviewGrade.FORGOT]: 2,
+  [ReviewGrade.HARD]: 5,
+  [ReviewGrade.GOOD]: 10,
+  [ReviewGrade.EASY]: 12,
+  [ReviewGrade.PERFECT]: 12,
+};
+
 export function harvestGold(
   intervalDaysBefore: number,
   grade: ReviewGrade

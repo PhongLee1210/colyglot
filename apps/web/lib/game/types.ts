@@ -1,4 +1,10 @@
-import type { CardExample, FarmStats } from "@/lib/db/schema";
+import type { CardExample } from "@/lib/game/content/types";
+
+export type FarmStats = {
+  planted: number;
+  harvested: number;
+  goldEarned: number;
+};
 
 export type PlotView = {
   slotIndex: number;

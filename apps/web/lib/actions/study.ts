@@ -1,6 +1,6 @@
 "use server";
 
-import { review } from "@colyglot/srs";
+import { review, ReviewGrade } from "@colyglot/srs";
 
 import { requireUserId } from "@/lib/auth/session";
 import { addDeckXpForCard } from "@/lib/db/repositories/deck-progress";
@@ -11,8 +11,11 @@ import {
   openStudySession,
   upsertCardSchedule,
 } from "@/lib/db/repositories/study";
-import { ReviewGrade, XP_BY_GRADE } from "@/lib/db/schema";
-import { harvestPreview, type HarvestPreview } from "@/lib/game/core/economy";
+import {
+  harvestPreview,
+  XP_BY_GRADE,
+  type HarvestPreview,
+} from "@/lib/game/core/economy";
 import type { ActionResult } from "./types";
 
 export type GradeResult = {

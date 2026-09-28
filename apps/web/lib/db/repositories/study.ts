@@ -1,14 +1,13 @@
 import { and, asc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 
+import { isValidReviewGrade, ReviewGrade } from "@colyglot/srs";
+
 import { computeStreak } from "@/lib/streak";
 import { getDb } from "../index";
 import {
   cards,
   cardSchedules,
   decks,
-  DEFAULT_DUE_QUEUE_LIMIT,
-  isValidReviewGrade,
-  ReviewGrade,
   reviewLogs,
   studySessions,
   type Card,
@@ -16,6 +15,8 @@ import {
   type ReviewLog,
   type StudySession,
 } from "../schema";
+
+export const DEFAULT_DUE_QUEUE_LIMIT = 50;
 
 export type DueQueueItem = {
   card: Card;

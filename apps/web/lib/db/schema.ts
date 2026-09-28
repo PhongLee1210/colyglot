@@ -13,51 +13,15 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { DEFAULT_EASE_FACTOR } from "@colyglot/srs";
+
+import type { CardCollocation, CardExample } from "@/lib/game/content/types";
+import { STARTING_GOLD } from "@/lib/game/core/economy";
 import { DEFAULT_MUSIC_VOLUME } from "@/lib/game/music";
+import type { FarmStats } from "@/lib/game/types";
 
 export const DEFAULT_SOURCE_LANG = "zh";
 export const DEFAULT_TARGET_LANG = "vi";
-
-export const DEFAULT_EASE_FACTOR = 2.5;
-export const DEFAULT_DUE_QUEUE_LIMIT = 50;
-
-export enum ReviewGrade {
-  FORGOT = 1,
-  HARD = 2,
-  GOOD = 3,
-  EASY = 4,
-  PERFECT = 5,
-}
-
-export function isValidReviewGrade(grade: number): grade is ReviewGrade {
-  return (
-    Number.isInteger(grade) &&
-    grade >= ReviewGrade.FORGOT &&
-    grade <= ReviewGrade.PERFECT
-  );
-}
-
-export { levelFromXp, XP_PER_LEVEL } from "@/lib/xp";
-
-export const XP_BY_GRADE: Record<ReviewGrade, number> = {
-  [ReviewGrade.FORGOT]: 2,
-  [ReviewGrade.HARD]: 5,
-  [ReviewGrade.GOOD]: 10,
-  [ReviewGrade.EASY]: 12,
-  [ReviewGrade.PERFECT]: 12,
-};
-
-export type CardExample = {
-  hanzi: string;
-  pinyin: string;
-  translation: string;
-};
-
-export type CardCollocation = {
-  phrase: string;
-  pinyin: string;
-  translation: string;
-};
 
 export const decks = pgTable(
   "decks",
@@ -199,12 +163,6 @@ export const deckProgress = pgTable(
   ]
 );
 
-export type FarmStats = {
-  planted: number;
-  harvested: number;
-  goldEarned: number;
-};
-
 const DEFAULT_FARM_STATS: FarmStats = {
   planted: 0,
   harvested: 0,
@@ -218,7 +176,7 @@ export const farmWorlds = pgTable(
     userId: text("user_id").notNull(),
     langKey: text("lang_key").notNull(),
     tier: integer("tier").notNull().default(0),
-    gold: integer("gold").notNull().default(40),
+    gold: integer("gold").notNull().default(STARTING_GOLD),
     unlockedTechs: jsonb("unlocked_techs")
       .$type<string[]>()
       .notNull()

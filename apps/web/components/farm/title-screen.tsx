@@ -6,8 +6,8 @@ import { useState, useTransition } from "react";
 import { useToast } from "@/components/ui/toast";
 import { startWorldAction } from "@/lib/actions/farm";
 import { STARTING_GOLD } from "@/lib/game/core/economy";
+import type { TitleScreenData } from "@/lib/queries/title-page";
 import { TitleHero } from "./art/title-hero";
-import type { TitleScreenData } from "./title-page-data";
 
 export function TitleScreen({ data }: { data: TitleScreenData }) {
   const router = useRouter();

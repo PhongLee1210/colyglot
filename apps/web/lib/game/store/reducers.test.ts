@@ -7,7 +7,7 @@ import {
   applyGoldDelta,
   applyPlant,
   rollbackPlant,
-} from "./farm-store";
+} from "./reducers";
 
 function fixture(): FarmWorldSnapshot {
   return {

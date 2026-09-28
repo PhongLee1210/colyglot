@@ -10,7 +10,13 @@ import {
   START_PLOTS,
   STARTING_GOLD,
 } from "@/lib/game/core/economy";
-import type { BedView, FarmWorldSnapshot, PlotView } from "@/lib/game/types";
+import type {
+  BedView,
+  FarmStats,
+  FarmWorldSnapshot,
+  PlotView,
+} from "@/lib/game/types";
+import { levelFromXp } from "@/lib/xp";
 
 import { getDb } from "../index";
 import {
@@ -23,9 +29,7 @@ import {
   farmItems,
   farmPlots,
   farmWorlds,
-  levelFromXp,
   reviewLogs,
-  type FarmStats,
   type FarmWorld,
 } from "../schema";
 import {

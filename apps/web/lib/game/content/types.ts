@@ -1,4 +1,14 @@
-import type { CardCollocation, CardExample } from "@/lib/db/schema";
+export type CardExample = {
+  hanzi: string;
+  pinyin: string;
+  translation: string;
+};
+
+export type CardCollocation = {
+  phrase: string;
+  pinyin: string;
+  translation: string;
+};
 
 export type FarmTheme = {
   sky: [string, string];

@@ -1,13 +1,12 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
+import type { CardCollocation, CardExample } from "@/lib/game/content/types";
 import { getDb } from "../index";
 import {
   cardRecordings,
   cards,
   decks,
   type Card,
-  type CardCollocation,
-  type CardExample,
   type CardRecording,
   type Deck,
 } from "../schema";

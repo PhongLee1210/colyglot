@@ -8,12 +8,12 @@ import { useToast } from "@/components/ui/toast";
 import { expandBedAction, plantSeedsAction } from "@/lib/actions/farm";
 import { LANG_PACKS } from "@/lib/game/content";
 import { expandBedCost } from "@/lib/game/core/economy";
+import { useFarmStore } from "@/lib/game/store/farm-store";
 import {
   applyExpand,
   applyPlant,
   rollbackPlant,
-  useFarmStore,
-} from "@/lib/game/store/farm-store";
+} from "@/lib/game/store/reducers";
 
 type PendingWord = { hanzi: string; pinyin: string; translation: string };
 

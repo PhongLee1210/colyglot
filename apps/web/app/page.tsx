@@ -2,9 +2,9 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { FarmGameScreen } from "@/components/farm/farm-game-screen";
-import { loadTitleScreenData } from "@/components/farm/title-page-data";
 import { TitleScreen } from "@/components/farm/title-screen";
 import { Skeleton } from "@/components/ui/skeleton";
+import { loadTitleScreenData } from "@/lib/queries/title-page";
 
 export default async function HomePage({
   searchParams,

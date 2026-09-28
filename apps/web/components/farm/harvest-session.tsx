@@ -6,10 +6,11 @@ import { useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { claimHarvestAction, openHarvestAction } from "@/lib/actions/farm";
 import { finishSessionAction, gradeCardAction } from "@/lib/actions/study";
-import { ReviewGrade } from "@/lib/db/schema";
 import { type HarvestPreview } from "@/lib/game/core/economy";
-import { applyClaim, useFarmStore } from "@/lib/game/store/farm-store";
+import { useFarmStore } from "@/lib/game/store/farm-store";
+import { applyClaim } from "@/lib/game/store/reducers";
 import type { HarvestCard } from "@/lib/game/types";
+import { ReviewGrade } from "@colyglot/srs";
 
 import { HarvestCelebration } from "./celebration";
 import { BackToFarmButton, FarmOverlay, FarmPanel } from "./farm-overlay";

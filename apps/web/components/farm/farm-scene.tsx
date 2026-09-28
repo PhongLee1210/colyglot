@@ -8,7 +8,8 @@ import { shade } from "@/lib/game/art/palette";
 import type { FarmTheme } from "@/lib/game/content/types";
 import { cropStage } from "@/lib/game/core/crops";
 import { expandBedCost } from "@/lib/game/core/economy";
-import { applyExpand, useFarmStore } from "@/lib/game/store/farm-store";
+import { useFarmStore } from "@/lib/game/store/farm-store";
+import { applyExpand } from "@/lib/game/store/reducers";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
 
 import { CropArt } from "./art/crop-art";

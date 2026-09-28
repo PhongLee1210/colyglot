@@ -10,9 +10,9 @@ import {
   gradeCardAction,
   startStudySessionAction,
 } from "@/lib/actions/study";
-import { ReviewGrade } from "@/lib/db/schema";
 import { LANG_PACKS, findWord } from "@/lib/game/content";
 import { useFarmStore } from "@/lib/game/store/farm-store";
+import { ReviewGrade } from "@colyglot/srs";
 
 import { BackToFarmButton, FarmOverlay, FarmPanel } from "./farm-overlay";
 import { SpeakButton } from "./speak-button";

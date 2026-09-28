@@ -11,6 +11,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 
+import { ReviewGrade } from "@colyglot/srs";
 import { getDb } from "../index";
 import {
   createCard,
@@ -32,7 +33,7 @@ import {
   upsertCardSchedule,
   type ScheduleState,
 } from "../repositories/study";
-import { ReviewGrade, reviewLogs } from "../schema";
+import { reviewLogs } from "../schema";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
 const describeIntegration = databaseUrl ? describe : describe.skip;

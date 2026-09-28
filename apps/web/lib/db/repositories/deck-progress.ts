@@ -1,14 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
 
+import { levelFromXp, XP_PER_LEVEL } from "@/lib/xp";
 import { getDb } from "../index";
-import {
-  cards,
-  deckProgress,
-  decks,
-  levelFromXp,
-  XP_PER_LEVEL,
-  type DeckProgress,
-} from "../schema";
+import { cards, deckProgress, decks, type DeckProgress } from "../schema";
 
 export async function listDeckProgress(
   userId: string
