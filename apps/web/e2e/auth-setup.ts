@@ -8,7 +8,7 @@ test("establish signed-in storage state", async ({ page }) => {
   await page.goto(
     `/auth/test-signin?token=${SIGNIN_TOKEN}&email=${encodeURIComponent(
       E2E_EMAIL
-    )}&password=${encodeURIComponent(E2E_PASSWORD)}`
+    )}&password=${encodeURIComponent(E2E_PASSWORD)}&reset=1`
   );
   await expect(
     page.getByRole("heading", { name: "Colyglot Language Farm" })

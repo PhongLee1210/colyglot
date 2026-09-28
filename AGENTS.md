@@ -12,7 +12,7 @@ Colyglot is a vibrant language-learning adventure—an app where playful practic
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4
 - **Database**: Supabase Postgres, accessed via Drizzle ORM — schema in `apps/web/lib/db/schema.ts`, migrations in `apps/web/drizzle/`
-- **Lint**: ESLint (flat config, `eslint-config-next`)
+- **Lint**: ESLint (flat config via `@colyglot/eslint-config`)
 
 ## Repo Structure
 
@@ -23,12 +23,15 @@ apps/web/                # Next.js app (package name: "web")
   lib/actions/           # server actions (typed ActionResult contracts)
   lib/db/                # Drizzle schema + server-only repositories
   lib/db/repositories/   # the only sanctioned data-access surface
+  lib/queries/           # server-only page/view data loaders
   lib/storage/           # take-storage adapter (local now, Supabase Storage later)
   lib/game/              # client-safe farm content registry, core economy, art, store
   drizzle/               # committed SQL migrations
-packages/srs/            # @colyglot/srs — pure SM-2 engine + queue priority
+packages/srs/            # @colyglot/srs — pure SM-2 engine + queue priority (canonical shared constants)
+packages/eslint-config/  # @colyglot/eslint-config — shared lint rules (base + next)
+packages/typescript-config/ # @colyglot/typescript-config — shared tsconfigs (base + web + bun)
 docs/                    # engineering standards + story board
-turbo.json               # task pipeline (build, dev, lint, typecheck, test, start)
+turbo.json               # task pipeline + package boundary rules (turbo boundaries)
 ```
 
 ## Common Development Commands
@@ -42,6 +45,7 @@ bun run lint              # turbo run lint   — eslint across workspaces
 bun run typecheck         # turbo run typecheck — tsc --noEmit across workspaces
 bun run test              # turbo run test   — bun test (unit + DB integration)
 bun run start             # turbo run start  — serve production build
+bun run boundaries        # turbo boundaries — enforce package dependency direction
 ```
 
 Database scripts (run from `apps/web`, require `DATABASE_URL` in `.env`):
@@ -55,7 +59,12 @@ bun run db:studio         # open Drizzle Studio
 ## Conventions
 
 - Import alias: `@/*` maps to `apps/web/*`
+- Dependency direction (enforced by `bun run boundaries`): `apps → packages` only; pure packages never import app code; when `@colyglot/core` exists it may depend only on `@colyglot/srs`
+- Client-safe layers (`lib/game`) never import from `lib/db` — the direction is always server → pure
+- Shared constants (`ReviewGrade`, `DEFAULT_EASE_FACTOR`) are canonical in `@colyglot/srs` — never redeclare them locally
+- Shared tool versions (`typescript`, `eslint`, `@types/bun`) are pinned once in the root `catalog` — reference with `"catalog:"`, never hardcode versions per workspace
 - New shared code goes in `packages/*` once more than one app/package needs it — don't create packages speculatively
+- `test` and `test:e2e` both run against the shared dev database (integration tests truncate tables; E2E resets its user) — `test:e2e` therefore `dependsOn: ["test"]`; any new DB-touching task must join this serialization in `turbo.json`
 - Keep `turbo.json` task `outputs`/`cache` settings in sync when adding build-producing scripts to a package
 
 ### Validation Hierarchy

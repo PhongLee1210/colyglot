@@ -26,6 +26,16 @@ async function openSettings(page: import("@playwright/test").Page) {
   return dialog;
 }
 
+// The save is a debounced, best-effort POST — the "Settings saved" chip is
+// the app-level confirmation that the server round-trip committed. Waiting
+// for it (instead of sleeping) makes the reload assertions deterministic.
+async function closeSettingsAndSave(page: import("@playwright/test").Page) {
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("Settings saved")).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
 test.describe("music settings", () => {
   test("volume and mute persist across reloads", async ({ page }) => {
     test.setTimeout(120_000);
@@ -41,9 +51,7 @@ test.describe("music settings", () => {
     const slider = page.getByTestId("music-volume");
     await slider.fill("55");
     await expect(page.getByTestId("music-volume-value")).toHaveText("55");
-    await page.keyboard.press("Escape");
-    // Closing flushes the debounced save — give the POST time to land.
-    await page.waitForTimeout(1_000);
+    await closeSettingsAndSave(page);
 
     await page.reload();
     await ensureStarted(page);
@@ -55,8 +63,7 @@ test.describe("music settings", () => {
       page.getByRole("button", { name: "Unmute music" })
     ).toBeVisible();
     await expect(page.getByTestId("music-volume")).toBeDisabled();
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(1_000);
+    await closeSettingsAndSave(page);
 
     await page.reload();
     await ensureStarted(page);
@@ -65,11 +72,10 @@ test.describe("music settings", () => {
       page.getByRole("button", { name: "Unmute music" })
     ).toBeVisible();
 
-    // Leave the fixture muted-at-55 for deterministic replays.
     await page.getByTestId("music-mute").click();
     await expect(
       page.getByRole("button", { name: "Mute music" })
     ).toBeVisible();
-    await page.keyboard.press("Escape");
+    await closeSettingsAndSave(page);
   });
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { safeNextPath } from "@/lib/auth/next-path";
 import { createSupabaseServerClient } from "@/lib/auth/server-client";
+import { resetUserData } from "@/lib/db/repositories/user-data";
 
 const TEST_EMAIL_DOMAIN = "@colyglot.test";
 
@@ -21,12 +22,15 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
-  if (error) {
+  if (error || !data.user) {
     return NextResponse.json({ error: "Sign-in failed" }, { status: 401 });
+  }
+  if (searchParams.get("reset") === "1") {
+    await resetUserData(data.user.id);
   }
   return NextResponse.redirect(new URL(next, origin));
 }
