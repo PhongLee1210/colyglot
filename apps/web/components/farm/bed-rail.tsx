@@ -19,7 +19,9 @@ export function BedRail({
   now: Date | null;
 }) {
   return (
-    <div className="pointer-events-none fixed inset-x-3 top-[4.4rem] z-10 flex gap-2 overflow-x-auto pb-1 sm:inset-x-auto sm:left-3 sm:top-24 sm:flex-col sm:overflow-visible">
+    // A row under the topbar on phones, a column beside the farm from sm
+    // up — the panel is a bottom sheet on phones, so the two never meet.
+    <div className="pointer-events-none fixed left-2 top-[calc(var(--hud-top)+3.5rem)] z-20 flex max-w-[calc(100vw-11rem)] gap-2 overflow-x-auto pb-1 [scrollbar-width:none] sm:left-3 sm:max-w-none sm:flex-col sm:overflow-visible [&::-webkit-scrollbar]:hidden">
       {snapshot.beds.map((bed) => (
         <BedChip key={bed.id} snapshot={snapshot} bed={bed} now={now} />
       ))}
@@ -83,11 +85,11 @@ function BedChip({
   }
 
   return (
-    <div className="glass pointer-events-auto flex shrink-0 items-center gap-2 rounded-2xl px-3 py-1.5">
-      <span className="text-xs font-extrabold text-fg">{bed.name}</span>
+    <div className="glass-dark pointer-events-auto flex w-max shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-white">
+      <span className="font-display text-xs font-extrabold">{bed.name}</span>
       <span
         data-testid="bed-words"
-        className="rounded-full bg-white/40 px-1.5 text-[11px] font-bold text-fg dark:bg-black/30"
+        className="rounded-full bg-black/30 px-1.5 text-[11px] font-bold"
       >
         {planted}/{bed.plotCount} words
       </span>
@@ -99,7 +101,7 @@ function BedChip({
       <button
         type="button"
         aria-label={`Expand ${bed.name}`}
-        className="rounded-full bg-white/50 px-2 py-0.5 text-[11px] font-bold text-fg transition hover:brightness-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-black/35"
+        className="rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-bold transition hover:bg-white/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={busy}
         onClick={expand}
       >

@@ -40,6 +40,9 @@ export type HarvestCard = {
   translation: string;
   examples: CardExample[];
   fresh: boolean;
+  // Pre-review memory strength: it picks the challenge tier the card is
+  // asked at, and the gold the harvest pays.
+  intervalDays: number;
 };
 
 export type FarmWorldSnapshot = {

@@ -35,10 +35,10 @@ async function plantIfPossible(
   page: import("@playwright/test").Page
 ): Promise<void> {
   const bedWords = page.getByTestId("bed-words").first();
-  await page.getByRole("button", { name: "Seeds" }).click();
-  const sheet = page.getByRole("dialog", { name: "Seeds" });
-  await expect(sheet).toBeVisible();
-  const plantPack = sheet.getByRole("button", { name: "Plant Pack" }).first();
+  await page.getByTestId("dock-seeds").click();
+  const panel = page.getByRole("dialog", { name: "Seeds" });
+  await expect(panel).toBeVisible();
+  const plantPack = panel.getByRole("button", { name: "Plant Pack" }).first();
   const packAttached = await plantPack
     .waitFor({ state: "attached", timeout: 3_000 })
     .then(

@@ -1,7 +1,10 @@
 "use client";
 
+import Image from "next/image";
+
 import { STARTING_GOLD } from "@/lib/game/core/economy";
 import type { FarmWorldCard } from "@/lib/game/types";
+import { cn } from "@/lib/utils/cn";
 
 export type TitleOverlayProps = {
   worlds: FarmWorldCard[];
@@ -14,8 +17,14 @@ export type TitleOverlayProps = {
   onSelectWorld: (world: FarmWorldCard) => void;
 };
 
-const primaryButton =
-  "rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-on-primary transition hover:bg-primary-700 active:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-primary-500";
+const CTA_CLASS =
+  "raised w-full max-w-xs rounded-full bg-green-600 px-8 py-3.5 font-display text-lg font-extrabold text-white transition hover:bg-green-700 active:translate-y-[3px] active:raised-pressed disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none dark:bg-green-500 dark:text-green-950 dark:hover:bg-green-400";
+
+const RAIL_TILE_CLASS =
+  "flex shrink-0 flex-col items-center gap-1.5 rounded-2xl px-3 py-2.5";
+
+const RAIL_BUTTON_CLASS =
+  "rounded-full bg-primary px-4 py-1.5 text-sm font-bold text-on-primary transition hover:bg-primary-700 active:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-primary-500";
 
 export function TitleOverlay({
   worlds,
@@ -27,86 +36,191 @@ export function TitleOverlay({
   onBegin,
   onSelectWorld,
 }: TitleOverlayProps) {
+  const activeWorld = worlds.find((world) => world.langKey === activeLangKey);
+  const ctaLabel = !canBegin
+    ? "Pick a farm"
+    : activeWorld?.started
+      ? "Continue"
+      : "Begin";
+
   return (
     <section
       aria-label="Welcome to Colyglot"
       data-testid="title-overlay"
-      className="absolute inset-0 z-40 flex items-end justify-center bg-black/30 p-4 backdrop-blur-[2px] sm:items-center"
+      className="absolute inset-0 z-40 overflow-y-auto bg-[radial-gradient(120%_90%_at_50%_8%,rgb(0_0_0/0.15),rgb(0_0_0/0.62))] p-4 backdrop-blur-[3px]"
     >
-      <div className="glass flex max-h-[85dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-3xl p-6">
-        <header className="flex flex-col items-center gap-1 text-center">
-          <span aria-hidden="true" className="text-5xl">
-            🌱
-          </span>
-          <h1 className="text-2xl font-extrabold">Colyglot Language Farm</h1>
-          <p className="text-sm text-fg-muted">
+      <div className="mx-auto flex min-h-full w-full max-w-md flex-col items-center gap-4 py-6 text-center sm:justify-center">
+        <HeroMark />
+        <div className="flex flex-col items-center gap-1">
+          <h1 className="bg-gradient-to-b from-yellow-300 via-accent to-yellow-600 bg-clip-text font-display text-4xl font-extrabold tracking-tight text-transparent drop-shadow-[0_2px_8px_rgb(0_0_0/0.35)]">
+            Colyglot
+          </h1>
+          <p className="text-sm font-semibold text-white/90">
             Plant words, harvest memories.
           </p>
-          {streak > 0 ? (
-            <p className="text-sm font-bold">🔥 {streak} day streak</p>
-          ) : null}
-        </header>
-
-        <div className="flex flex-col gap-2" aria-label="Choose your language">
-          {worlds.map((world) => {
-            const active = world.langKey === activeLangKey;
-            const busy = busyLangKey === world.langKey;
-            return (
-              <div
-                key={world.langKey}
-                className={`flex items-center justify-between gap-3 rounded-2xl bg-white/40 p-3 dark:bg-black/25 ${
-                  active ? "ring-2 ring-primary" : ""
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="text-base font-bold">
-                    {world.flag} {world.name}
-                  </div>
-                  <div className="truncate text-xs text-fg-muted">
-                    {world.started
-                      ? `${world.tierName} · 💰 ${world.gold} · ${world.dueCount} ready to harvest`
-                      : `A fresh garden awaits — start with ${STARTING_GOLD} 💰`}
-                  </div>
-                </div>
-                {active ? (
-                  <span className="shrink-0 rounded-full bg-primary/15 px-3 py-1 text-xs font-extrabold text-primary">
-                    Here now
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    data-testid={`title-world-${world.langKey}`}
-                    className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-sm font-bold text-on-primary transition hover:bg-primary-700 active:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-primary-500"
-                    disabled={busyLangKey !== null}
-                    onClick={() => onSelectWorld(world)}
-                  >
-                    {busy ? "…" : world.started ? "Play" : "Start"}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-          {futureLangs.map((lang) => (
-            <div
-              key={lang.langKey}
-              className="flex items-center justify-between rounded-2xl border border-dashed border-line p-3 opacity-60"
-            >
-              <span className="text-sm font-bold">{lang.name}</span>
-              <span className="text-xs text-fg-muted">Coming soon</span>
-            </div>
-          ))}
+          <p className="max-w-xs text-xs leading-relaxed text-white/65">
+            Plant a word, tend it while it grows, and harvest it before it
+            wilts. Every review feeds your farm.
+          </p>
         </div>
-
+        <ProgressChip world={activeWorld} streak={streak} />
         <button
           type="button"
           data-testid="title-begin"
-          className={primaryButton}
+          className={CTA_CLASS}
           disabled={!canBegin || busyLangKey !== null}
           onClick={onBegin}
         >
-          {canBegin ? "Begin →" : "Pick a farm above to begin"}
+          {ctaLabel}
         </button>
+        <WorldRail
+          worlds={worlds}
+          futureLangs={futureLangs}
+          activeLangKey={activeLangKey}
+          busyLangKey={busyLangKey}
+          onSelectWorld={onSelectWorld}
+        />
+        <TitleLinks />
       </div>
     </section>
+  );
+}
+
+function HeroMark() {
+  return (
+    <span
+      aria-hidden="true"
+      className="animate-pulse rounded-[1.75rem] bg-white/10 p-1 shadow-[0_0_36px_rgb(234_179_8/0.35)] ring-1 ring-white/25 motion-reduce:animate-none"
+    >
+      <Image
+        src="/logo.png"
+        alt=""
+        width={1092}
+        height={929}
+        priority
+        className="size-20 rounded-3xl object-contain"
+      />
+    </span>
+  );
+}
+
+function ProgressChip({
+  world,
+  streak,
+}: {
+  world: FarmWorldCard | undefined;
+  streak: number;
+}) {
+  if (!world) return null;
+  return (
+    <p
+      data-testid="title-chip"
+      className="glass-dark rounded-full px-4 py-1.5 text-xs font-bold text-white"
+    >
+      {world.flag} {world.name} · {world.tierName}
+      {streak > 0 ? (
+        <span className="text-white/70"> · 🔥 {streak}</span>
+      ) : null}
+    </p>
+  );
+}
+
+function WorldRail({
+  worlds,
+  futureLangs,
+  activeLangKey,
+  busyLangKey,
+  onSelectWorld,
+}: {
+  worlds: FarmWorldCard[];
+  futureLangs: { langKey: string; name: string }[];
+  activeLangKey: string | null;
+  busyLangKey: string | null;
+  onSelectWorld: (world: FarmWorldCard) => void;
+}) {
+  return (
+    <div
+      data-testid="title-rail"
+      aria-label="Choose your language"
+      className="flex w-full items-stretch gap-2 overflow-x-auto pb-1"
+    >
+      {worlds.map((world) => {
+        const active = world.langKey === activeLangKey;
+        const busy = busyLangKey === world.langKey;
+        return (
+          <div
+            key={world.langKey}
+            className={cn(
+              RAIL_TILE_CLASS,
+              "glass-warm text-fg",
+              active && "ring-2 ring-primary"
+            )}
+          >
+            <span aria-hidden="true" className="text-2xl leading-none">
+              {world.flag}
+            </span>
+            <span className="text-xs font-bold">{world.name}</span>
+            <span className="max-w-24 truncate text-[10px] text-fg-muted">
+              {world.started
+                ? `${world.tierName} · 💰 ${world.gold}`
+                : `Start with ${STARTING_GOLD} 💰`}
+            </span>
+            {active ? (
+              <span className="rounded-full bg-primary/15 px-3 py-1 text-[10px] font-extrabold text-primary">
+                Here now
+              </span>
+            ) : (
+              <button
+                type="button"
+                data-testid={`title-world-${world.langKey}`}
+                className={RAIL_BUTTON_CLASS}
+                disabled={busyLangKey !== null}
+                onClick={() => onSelectWorld(world)}
+              >
+                {busy ? "…" : world.started ? "Play" : "Start"}
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {futureLangs.map((lang) => (
+        <div
+          key={lang.langKey}
+          aria-disabled="true"
+          className={cn(
+            RAIL_TILE_CLASS,
+            "border border-dashed border-white/30 text-white/45"
+          )}
+        >
+          <span
+            aria-hidden="true"
+            className="text-2xl leading-none opacity-50 grayscale"
+          >
+            🔒
+          </span>
+          <span className="text-xs font-bold">{lang.name}</span>
+          <span className="text-[10px] text-white/50">Coming soon</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TitleLinks() {
+  const links = ["Guide", "Worlds", "Install", "Sound"];
+  return (
+    <nav
+      aria-label="Title screen links"
+      className="mt-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-2 text-xs text-white/55"
+    >
+      {links.map((label, index) => (
+        <span key={label} className="flex items-center gap-3">
+          {index > 0 ? <span aria-hidden="true">·</span> : null}
+          <button type="button" aria-disabled="true" disabled>
+            {label}
+          </button>
+        </span>
+      ))}
+    </nav>
   );
 }

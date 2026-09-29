@@ -1,5 +1,21 @@
 import { expect, test } from "@playwright/test";
 
+import { LANG_PACKS } from "@/lib/game/content";
+
+const LANG_KEY = "zh-vi";
+
+// The answer is never in the DOM — the spec resolves it from the same
+// content pack the game builds its choices from, so no test-only hook has
+// to ship just to make the harvest loop drivable.
+function answerFor(prompt: string): string | null {
+  const words = (LANG_PACKS[LANG_KEY]?.packs ?? []).flatMap(
+    (pack) => pack.words
+  );
+  const byHanzi = words.find((word) => word.hanzi === prompt);
+  if (byHanzi) return byHanzi.translation;
+  return words.find((word) => word.translation === prompt)?.hanzi ?? null;
+}
+
 // The game streams its data and boots the 3D world behind a loading
 // overlay. A deep link with a started world goes straight to the HUD;
 // an unstarted world lands on the in-game title overlay instead of the
@@ -60,10 +76,10 @@ test.describe("farm game loop", () => {
 
     // Plant whichever pack still has unplanted words (tolerates replays;
     // a full bed renders "Bed full" instead, so absence is a valid state).
-    await page.getByRole("button", { name: "Seeds" }).click();
-    const sheet = page.getByRole("dialog", { name: "Seeds" });
-    await expect(sheet).toBeVisible();
-    const plantPack = sheet.getByRole("button", { name: "Plant Pack" }).first();
+    await page.getByTestId("dock-seeds").click();
+    const panel = page.getByRole("dialog", { name: "Seeds" });
+    await expect(panel).toBeVisible();
+    const plantPack = panel.getByRole("button", { name: "Plant Pack" }).first();
     const packAttached = await plantPack
       .waitFor({ state: "attached", timeout: 3_000 })
       .then(
@@ -82,48 +98,42 @@ test.describe("farm game loop", () => {
 
     // Harvest: fresh (never-graded) cards are always in the due queue, so
     // whenever we just planted, this session is guaranteed to have cards.
-    await page.getByRole("button", { name: "Harvest" }).click();
+    await page.getByTestId("dock-harvest").click();
     const begin = page.getByRole("button", { name: "Begin harvest" });
     if (await begin.isEnabled()) {
       await begin.click();
 
-      // The queue streams from the server; wait for the first card or
-      // the loop's visibility check breaks out before grading starts.
-      await expect(page.getByRole("button", { name: /^Card: / })).toBeVisible({
-        timeout: 15_000,
-      });
+      // The queue streams from the server; wait for the first question or
+      // the loop's visibility check breaks out before answering starts.
+      const prompt = page.getByTestId("harvest-prompt");
+      const feedback = page.getByTestId("harvest-answer");
+      const gold = page.getByTestId("harvest-gold");
+      await expect(prompt).toBeVisible({ timeout: 15_000 });
 
-      for (let i = 0; i < 15; i++) {
-        const card = page.getByRole("button", { name: /^Card: / });
-        if (!(await card.isVisible())) break;
-        const labelBefore = await card.getAttribute("aria-label");
-        await card.click(); // flip to reveal
-        await page.getByRole("button", { name: /^Perfect$/ }).click();
-        // A grade takes seconds on the shared Supabase plus an 850ms
-        // reward window — wait until this card actually advances (or the
-        // session ends) before touching the next one.
-        await expect
-          .poll(
-            async () => {
-              if (
-                await page
-                  .getByTestId("harvest-gold")
-                  .isVisible()
-                  .catch(() => false)
-              ) {
-                return true;
-              }
-              const label = await card
-                .getAttribute("aria-label")
-                .catch(() => null);
-              return label !== labelBefore;
-            },
-            { timeout: 15_000 }
-          )
-          .toBe(true);
+      // A slow answer grades as HARD and requeues the card, so the prompt
+      // text alone cannot tell "advanced" from "came straight back" —
+      // the feedback panel closing is the unambiguous signal.
+      for (let i = 0; i < 25; i++) {
+        if (!(await prompt.isVisible().catch(() => false))) break;
+        const asked = await prompt.innerText();
+        const answer = answerFor(asked);
+        expect(
+          answer,
+          `no content-pack word matches the prompt: ${asked}`
+        ).not.toBeNull();
+
+        await page
+          .getByTestId("harvest-choices")
+          .getByRole("button", { name: answer!, exact: true })
+          .click();
+
+        await expect(feedback.or(gold)).toBeVisible({ timeout: 15_000 });
+        if (await gold.isVisible().catch(() => false)) break;
+        // A grade takes seconds on the shared Supabase plus the answer
+        // hold before the next question is live.
+        await expect(feedback).toBeHidden({ timeout: 20_000 });
       }
 
-      const gold = page.getByTestId("harvest-gold");
       await expect(gold).toBeVisible({ timeout: 15_000 });
       await expect(gold).toContainText("+");
       const harvested = Number((await gold.innerText()).replace(/[^0-9]/g, ""));

@@ -11,6 +11,7 @@ import {
   Mesh,
   Quaternion,
   Vector3,
+  type Material,
   type Object3D,
 } from "three";
 
@@ -18,13 +19,39 @@ import { swayX, swayZ, type SwayConfig } from "@/lib/game/3d/animation";
 import { FARM_MODEL_URLS } from "@/lib/game/3d/gltf-loader";
 import type { PropPlacement } from "@/lib/game/3d/scene-layout";
 
+// useGLTF's scene is shared across mounts, so flat shading is baked into
+// cached per-source clones instead of mutating the GLB's own materials.
+const FLAT_PROPS = new WeakMap<Mesh, Mesh>();
+
+function flatShadedMaterial(material: Mesh["material"]): Mesh["material"] {
+  const flatten = (single: Material): Material => {
+    const clone = single.clone();
+    if ("flatShading" in clone) clone.flatShading = true;
+    return clone;
+  };
+  return Array.isArray(material) ? material.map(flatten) : flatten(material);
+}
+
+function flatShadedProp(source: Mesh): Mesh {
+  const cached = FLAT_PROPS.get(source);
+  if (cached) return cached;
+  const prop = source.clone();
+  prop.material = flatShadedMaterial(source.material);
+  FLAT_PROPS.set(source, prop);
+  return prop;
+}
+
 export function useFarmPropMeshes(): Map<string, Mesh> {
   const { scene } = useGLTF(FARM_MODEL_URLS.world);
   return useMemo(() => {
     const byName = new Map<string, Mesh>();
     scene.traverse((child: Object3D) => {
       if ((child as Mesh).isMesh) {
-        byName.set(child.name, child as Mesh);
+        const mesh = child as Mesh;
+        byName.set(
+          mesh.name,
+          mesh.name.includes("water") ? mesh : flatShadedProp(mesh)
+        );
       }
     });
     return byName;

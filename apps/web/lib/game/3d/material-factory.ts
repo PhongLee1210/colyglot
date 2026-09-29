@@ -20,7 +20,7 @@ export type FarmMaterials = {
 const MATERIALS_CACHE = new Map<string, FarmMaterials>();
 
 function standard(color: string, roughness = 0.92): MeshStandardMaterial {
-  return new MeshStandardMaterial({ color, roughness });
+  return new MeshStandardMaterial({ color, roughness, flatShading: true });
 }
 
 export function createFarmMaterials(theme: FarmTheme): FarmMaterials {

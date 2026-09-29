@@ -1,54 +1,72 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { ReviewGrade } from "@colyglot/srs";
 
 import { useToast } from "@/components/ui/toast";
 import { claimHarvestAction, openHarvestAction } from "@/lib/actions/farm";
-import { finishSessionAction, gradeCardAction } from "@/lib/actions/study";
+import {
+  finishSessionAction,
+  gradeCardAction,
+  type GradeResult,
+} from "@/lib/actions/study";
+import type { ActionResult } from "@/lib/actions/types";
+import { playAnswerFeedback } from "@/lib/game/audio/sfx";
+import { LANG_PACKS } from "@/lib/game/content";
+import {
+  buildChallenge,
+  CORRECT_HOLD_MS,
+  gradeFromResponse,
+  UNDO_WINDOW_MS,
+  WRONG_HOLD_MS,
+  type Challenge,
+  type ChallengeWord,
+} from "@/lib/game/core/challenge";
 import { cropStage } from "@/lib/game/core/crops";
 import { type HarvestPreview } from "@/lib/game/core/economy";
 import { useFarmStore } from "@/lib/game/store/farm-store";
 import { useFxStore, type HarvestFxInput } from "@/lib/game/store/fx-store";
 import { applyClaim } from "@/lib/game/store/reducers";
 import type { HarvestCard } from "@/lib/game/types";
-import { ReviewGrade } from "@colyglot/srs";
 
 import { HarvestCelebration } from "./celebration";
 import { BackToFarmButton, FarmOverlay, FarmPanel } from "./farm-overlay";
+import { AnswerReveal } from "./harvest/answer-reveal";
+import { ChallengePrompt } from "./harvest/challenge-prompt";
+import { ChoiceGrid } from "./harvest/choice-grid";
 import { SpeakButton } from "./speak-button";
 
-const GRADE_BUTTONS: {
-  grade: ReviewGrade;
-  label: string;
-  className: string;
-}[] = [
-  {
-    grade: ReviewGrade.FORGOT,
-    label: "Forgot",
-    className: "bg-red-600 text-white",
-  },
-  {
-    grade: ReviewGrade.HARD,
-    label: "Hard",
-    className: "bg-orange-500 text-white",
-  },
-  {
-    grade: ReviewGrade.GOOD,
-    label: "Good",
-    className: "bg-green-600 text-white",
-  },
-  {
-    grade: ReviewGrade.EASY,
-    label: "Easy",
-    className: "bg-sky-600 text-white",
-  },
-  {
-    grade: ReviewGrade.PERFECT,
-    label: "Perfect",
-    className: "bg-violet-600 text-white",
-  },
-];
+// Matches the `harvest-pop` keyframe, so the reward clears exactly as it
+// finishes rising rather than lingering over the next question.
+const GOLD_POP_MS = 850;
+
+// The player resolves a wrong answer themselves, or the window does it for
+// them; either way the correct answer has already had its 1500ms on screen.
+type WrongAnswerResolution = { undo: () => void; advance: () => void };
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+// A planted card carries its own text, so a word missing from the content
+// pack still asks a question instead of blanking the session.
+function challengeWord(
+  card: HarvestCard,
+  pool: readonly ChallengeWord[]
+): ChallengeWord {
+  return (
+    pool.find((item) => item.hanzi === card.hanzi) ?? {
+      hanzi: card.hanzi,
+      pinyin: card.pinyin,
+      translation: card.translation,
+      packKey: "",
+    }
+  );
+}
 
 function intervalHint(intervalDays: number): string {
   return intervalDays < 1
@@ -71,7 +89,6 @@ export function HarvestSession({
   const hydrate = useFarmStore((state) => state.hydrate);
   const [queue, setQueue] = useState<HarvestCard[] | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState(false);
   const [reviewed, setReviewed] = useState(0);
   const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -79,11 +96,18 @@ export function HarvestSession({
   const [nextInterval, setNextInterval] = useState<number | null>(null);
   const [learningStep, setLearningStep] = useState(false);
   const [retried, setRetried] = useState<Set<string>>(new Set());
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [hesitated, setHesitated] = useState(false);
+  const [canContinue, setCanContinue] = useState(false);
+  const [undoSpent, setUndoSpent] = useState(false);
   // Card ids that cleared a grade step — the claim only pays for these,
   // so they are also exactly the crops the farm-side FX should play for.
   // A ref, because the finish path runs from a timeout whose closure
   // would otherwise hold a stale Set missing the final graded card.
   const reviewedIdsRef = useRef<Set<string>>(new Set());
+  const askedAtRef = useRef(0);
+  const resolutionRef = useRef<WrongAnswerResolution | null>(null);
   const [pendingFx, setPendingFx] = useState<{
     entries: HarvestFxInput[];
     goldAwarded: number;
@@ -93,6 +117,223 @@ export function HarvestSession({
     cardsHarvested: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const langKey = snapshot?.world.langKey ?? null;
+  const card = queue?.[0] ?? null;
+
+  const pool = useMemo<ChallengeWord[]>(() => {
+    const pack = langKey ? LANG_PACKS[langKey] : undefined;
+    return (pack?.packs ?? []).flatMap((seedPack) =>
+      seedPack.words.map((word) => ({
+        hanzi: word.hanzi,
+        pinyin: word.pinyin,
+        translation: word.translation,
+        packKey: seedPack.key,
+      }))
+    );
+  }, [langKey]);
+
+  // Shuffling a fresh grid is non-deterministic, so it happens here on the
+  // advance rather than during a render (Rendering Standard, checklist #4).
+  const startCard = useCallback(
+    (next: HarvestCard[]) => {
+      const head = next[0];
+      setQueue(next);
+      setChallenge(
+        head
+          ? buildChallenge(challengeWord(head, pool), pool, head.intervalDays)
+          : null
+      );
+      setPicked(null);
+      setHesitated(false);
+      setCanContinue(false);
+      askedAtRef.current = performance.now();
+    },
+    [pool]
+  );
+
+  useEffect(() => {
+    if (!preview && !learningStep) return;
+    const timer = window.setTimeout(() => {
+      setPreview(null);
+      setLearningStep(false);
+      setNextInterval(null);
+    }, GOLD_POP_MS);
+    return () => window.clearTimeout(timer);
+  }, [preview, learningStep]);
+
+  const finish = useCallback(
+    async (reviewedCount: number) => {
+      if (sessionId && reviewedCount > 0 && snapshot) {
+        try {
+          await finishSessionAction(sessionId, reviewedCount);
+          const result = await claimHarvestAction(
+            sessionId,
+            snapshot.world.langKey
+          );
+          if (result.ok) {
+            hydrate(applyClaim(useFarmStore.getState().snapshot!, result.data));
+            const entries: HarvestFxInput[] = [];
+            useFarmStore.getState().snapshot!.beds.forEach((bed) => {
+              bed.plots.forEach((plot) => {
+                if (
+                  plot.cardId &&
+                  plot.hanzi &&
+                  reviewedIdsRef.current.has(plot.cardId)
+                ) {
+                  entries.push({
+                    key: `${bed.id}:${plot.slotIndex}`,
+                    bedId: bed.id,
+                    slotIndex: plot.slotIndex,
+                    hanzi: plot.hanzi,
+                    stage: cropStage(plot.schedule, new Date()),
+                  });
+                }
+              });
+            });
+            setPendingFx({ entries, goldAwarded: result.data.goldAwarded });
+            setClaim({
+              goldAwarded: result.data.goldAwarded,
+              cardsHarvested: result.data.cardsHarvested,
+            });
+            return;
+          }
+        } catch {
+          toast(
+            "Connection lost — your gold is saved, retry from the farm",
+            "danger"
+          );
+        }
+      }
+      onClose();
+    },
+    [sessionId, snapshot, hydrate, toast, onClose]
+  );
+
+  const applyResult = useCallback(
+    (target: HarvestCard, result: ActionResult<GradeResult> | null) => {
+      if (!result) {
+        toast("Connection lost — check your network and try again", "danger");
+        setPicked(null);
+        setBusy(false);
+        askedAtRef.current = performance.now();
+        return;
+      }
+      if (!result.ok) {
+        toast(result.error, "danger");
+        setPicked(null);
+        setBusy(false);
+        askedAtRef.current = performance.now();
+        return;
+      }
+      const reviewedCount = reviewed + 1;
+      setReviewed(reviewedCount);
+      setNextInterval(result.data.intervalDays);
+      reviewedIdsRef.current.add(target.cardId);
+      // The claim pays once per card per session, so a retry shows the next
+      // step instead of gold — forgetting must never out-earn remembering.
+      if (retried.has(target.cardId)) {
+        setLearningStep(true);
+      } else {
+        setPreview(result.data.goldPreview);
+      }
+      if (result.data.requeued) {
+        setRetried((prev) => new Set(prev).add(target.cardId));
+      }
+      const remaining = (queue ?? []).slice(1);
+      const next = result.data.requeued ? [...remaining, target] : remaining;
+      startCard(next);
+      setBusy(false);
+      if (next.length === 0) {
+        void finish(reviewedCount);
+      }
+    },
+    [queue, retried, reviewed, toast, finish, startCard]
+  );
+
+  const sendGrade = useCallback(
+    async (target: HarvestCard, grade: ReviewGrade) => {
+      if (!sessionId) return null;
+      try {
+        return await gradeCardAction(target.cardId, sessionId, grade);
+      } catch {
+        return null;
+      }
+    },
+    [sessionId]
+  );
+
+  const waitForWrongAnswer = useCallback((): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const settle = (undone: boolean) => {
+        window.clearTimeout(timer);
+        resolutionRef.current = null;
+        resolve(undone);
+      };
+      const timer = window.setTimeout(() => settle(false), UNDO_WINDOW_MS);
+      resolutionRef.current = {
+        undo: () => settle(true),
+        advance: () => settle(false),
+      };
+    });
+  }, []);
+
+  const answer = useCallback(
+    async (choice: string) => {
+      if (!card || !challenge || picked !== null || busy) return;
+      const elapsedMs = performance.now() - askedAtRef.current;
+      const correct = choice === challenge.answer;
+      setPicked(choice);
+      setBusy(true);
+      playAnswerFeedback(correct);
+      const grade = gradeFromResponse({
+        correct,
+        elapsedMs,
+        hesitated,
+        tier: challenge.tier,
+      });
+
+      if (correct) {
+        const [result] = await Promise.all([
+          sendGrade(card, grade),
+          delay(CORRECT_HOLD_MS),
+        ]);
+        applyResult(card, result);
+        return;
+      }
+
+      const continueTimer = window.setTimeout(
+        () => setCanContinue(true),
+        WRONG_HOLD_MS
+      );
+      // Holding the write until the undo window closes is what makes undo
+      // possible at all: SM-2 mutates the ease factor, so a committed grade
+      // cannot be reversed afterwards.
+      const undone = await waitForWrongAnswer();
+      window.clearTimeout(continueTimer);
+      if (undone) {
+        setUndoSpent(true);
+        setPicked(null);
+        setCanContinue(false);
+        setBusy(false);
+        askedAtRef.current = performance.now();
+        return;
+      }
+      applyResult(card, await sendGrade(card, grade));
+    },
+    [
+      card,
+      challenge,
+      picked,
+      busy,
+      hesitated,
+      sendGrade,
+      applyResult,
+      waitForWrongAnswer,
+    ]
+  );
+
+  const markHesitated = useCallback(() => setHesitated(true), []);
 
   if (!snapshot) return null;
 
@@ -126,7 +367,7 @@ export function HarvestSession({
         <h1 className="text-xl font-extrabold">Harvest</h1>
         <p className="text-sm text-fg-muted">
           {snapshot.dueCount > 0
-            ? `${snapshot.dueCount} ${snapshot.dueCount === 1 ? "crop is" : "crops are"} ready. Grade each one to harvest.`
+            ? `${snapshot.dueCount} ${snapshot.dueCount === 1 ? "crop is" : "crops are"} ready. Answer each one to harvest it.`
             : "Nothing is ready yet — plant and nurture words first."}
         </p>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -149,8 +390,8 @@ export function HarvestSession({
                 const result = await openHarvestAction(snapshot.world.langKey);
                 if (result.ok) {
                   setSessionId(result.data.sessionId);
-                  setQueue(result.data.queue);
                   setTotal(result.data.queue.length);
+                  startCard(result.data.queue);
                 } else {
                   setError(result.error);
                 }
@@ -181,110 +422,14 @@ export function HarvestSession({
     );
   }
 
-  const card = queue[0];
   // A lapsed card comes back for a learning step; it only counts as
   // harvested once it finally sticks.
   const completed = reviewed - retried.size;
   const pendingRetries = queue.filter((item) =>
     retried.has(item.cardId)
   ).length;
-
-  async function finish(reviewedCount: number) {
-    if (sessionId && reviewedCount > 0) {
-      try {
-        await finishSessionAction(sessionId, reviewedCount);
-        const result = await claimHarvestAction(
-          sessionId,
-          snapshot!.world.langKey
-        );
-        if (result.ok) {
-          hydrate(applyClaim(useFarmStore.getState().snapshot!, result.data));
-          const entries: HarvestFxInput[] = [];
-          useFarmStore.getState().snapshot!.beds.forEach((bed) => {
-            bed.plots.forEach((plot) => {
-              if (
-                plot.cardId &&
-                plot.hanzi &&
-                reviewedIdsRef.current.has(plot.cardId)
-              ) {
-                entries.push({
-                  key: `${bed.id}:${plot.slotIndex}`,
-                  bedId: bed.id,
-                  slotIndex: plot.slotIndex,
-                  hanzi: plot.hanzi,
-                  stage: cropStage(plot.schedule, new Date()),
-                });
-              }
-            });
-          });
-          setPendingFx({
-            entries,
-            goldAwarded: result.data.goldAwarded,
-          });
-          setClaim({
-            goldAwarded: result.data.goldAwarded,
-            cardsHarvested: result.data.cardsHarvested,
-          });
-          return;
-        }
-      } catch {
-        toast(
-          "Connection lost — your gold is saved, retry from the farm",
-          "danger"
-        );
-      }
-    }
-    onClose();
-  }
-
-  async function grade(selected: ReviewGrade) {
-    if (busy || preview || learningStep || !sessionId) return;
-    setBusy(true);
-    let result;
-    try {
-      result = await gradeCardAction(card.cardId, sessionId, selected);
-    } catch {
-      toast("Connection lost — check your network and try again", "danger");
-      setBusy(false);
-      return;
-    }
-    if (!result.ok) {
-      toast(result.error, "danger");
-      setBusy(false);
-      return;
-    }
-    const reviewedCount = reviewed + 1;
-    setRevealed(false);
-    setReviewed(reviewedCount);
-    setNextInterval(result.data.intervalDays);
-    reviewedIdsRef.current.add(card.cardId);
-    // The claim pays once per card per session, so a retry shows the next
-    // step instead of gold — forgetting must never out-earn remembering.
-    const isRetry = retried.has(card.cardId);
-    if (!isRetry) {
-      setPreview(result.data.goldPreview);
-    } else {
-      setLearningStep(true);
-    }
-    if (result.data.requeued) {
-      setRetried((prev) => new Set(prev).add(card.cardId));
-    }
-    // Busy holds through the pop window; the timeout releases it and,
-    // once the basket empties, flows straight into the celebration.
-    // `busy` blocks concurrent grades, so this render's queue is current.
-    const remaining = queue!.slice(1);
-    const next = result.data.requeued ? [...remaining, card] : remaining;
-    setTimeout(() => {
-      setPreview(null);
-      setLearningStep(false);
-      setNextInterval(null);
-      setQueue(next);
-      setBusy(false);
-      if (next.length === 0) {
-        void finish(reviewedCount);
-      }
-    }, 850);
-  }
+  const answered = picked !== null && challenge !== null;
+  const correct = challenge !== null && picked === challenge.answer;
 
   return (
     <FarmPanel>
@@ -303,11 +448,11 @@ export function HarvestSession({
           Finish
         </button>
       </header>
-      <div className="relative mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
+      <div className="relative mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-5 overflow-y-auto p-6 text-center">
         {preview ? (
           <div
             aria-live="polite"
-            className="pointer-events-none fixed left-1/2 top-1/3 z-10 -translate-x-1/2 rounded-2xl bg-green-600 px-4 py-2 text-center font-bold text-white animate-[harvest-pop_850ms_ease-out]"
+            className="pointer-events-none fixed left-1/2 top-1/4 z-10 -translate-x-1/2 rounded-2xl bg-green-600 px-4 py-2 text-center font-bold text-white animate-[harvest-pop_850ms_ease-out]"
           >
             <p className="text-lg">+{preview.total} 💰</p>
             <p className="text-xs font-semibold opacity-90">
@@ -320,7 +465,7 @@ export function HarvestSession({
         ) : learningStep ? (
           <div
             aria-live="polite"
-            className="pointer-events-none fixed left-1/2 top-1/3 z-10 -translate-x-1/2 rounded-2xl bg-orange-500 px-4 py-2 text-center font-bold text-white animate-[harvest-pop_850ms_ease-out]"
+            className="pointer-events-none fixed left-1/2 top-1/4 z-10 -translate-x-1/2 rounded-2xl bg-orange-500 px-4 py-2 text-center font-bold text-white animate-[harvest-pop_850ms_ease-out]"
           >
             <p className="text-lg">Learning step</p>
             {nextInterval !== null ? (
@@ -330,77 +475,48 @@ export function HarvestSession({
             ) : null}
           </div>
         ) : null}
-        <button
-          type="button"
-          aria-label={`Card: ${card.hanzi}`}
-          aria-expanded={revealed}
-          className="perspective-card mx-auto block min-h-80 w-full max-w-md transition-transform hover:scale-[1.02] active:scale-[0.99]"
-          onClick={() => setRevealed(true)}
-        >
-          <span
-            className="preserve-3d relative block h-80 w-full"
-            style={{
-              transition: "transform 480ms ease",
-              transform: revealed ? "rotateY(180deg)" : undefined,
-            }}
-          >
-            <span className="backface-hidden absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-line bg-surface p-8">
-              {retried.has(card.cardId) ? (
-                <span className="rounded-full bg-orange-500/20 px-3 py-1 text-xs font-bold text-orange-700 dark:text-orange-300">
-                  Retry
-                </span>
-              ) : card.fresh ? (
-                <span className="rounded-full bg-line px-3 py-1 text-xs font-bold">
-                  New word
-                </span>
-              ) : null}
-              <span className="font-hanzi text-6xl font-bold">
-                {card.hanzi}
-              </span>
-              <span className="text-xl text-fg-muted">{card.pinyin}</span>
-              {!revealed ? (
-                <span className="text-sm text-fg-subtle">Tap to reveal</span>
-              ) : null}
+
+        {challenge && card ? (
+          <>
+            <ChallengePrompt
+              challenge={challenge}
+              retry={retried.has(card.cardId)}
+            />
+            {/* Needing to hear the word before answering is hesitation,
+                and it costs the same as answering slowly. */}
+            <span onClickCapture={markHesitated}>
+              <SpeakButton text={card.hanzi} />
             </span>
-            <span
-              className="backface-hidden absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-line bg-surface p-8"
-              style={{ transform: "rotateY(180deg)" }}
-            >
-              <span className="font-hanzi text-5xl font-bold">
-                {card.hanzi}
-              </span>
-              <span className="text-lg text-fg-muted">{card.pinyin}</span>
-              <span className="text-2xl font-bold text-green-700 dark:text-green-400">
-                {card.translation}
-              </span>
-              {card.examples[0] ? (
-                <span className="max-w-xs text-sm text-fg-muted">
-                  <span className="font-hanzi">{card.examples[0].hanzi}</span>
-                  {" — "}
-                  {card.examples[0].translation}
-                </span>
-              ) : null}
-            </span>
-          </span>
-        </button>
-        <SpeakButton text={card.hanzi} />
-        {revealed ? (
-          <div className="flex w-full max-w-md flex-col items-center gap-3">
-            <div className="flex w-full flex-wrap justify-center gap-2">
-              {GRADE_BUTTONS.map((button) => (
-                <button
-                  key={button.label}
-                  type="button"
-                  className={`flex min-h-11 min-w-16 flex-1 items-center justify-center rounded-2xl px-2 py-1.5 text-sm font-bold transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${button.className}`}
-                  disabled={busy}
-                  onClick={() => grade(button.grade)}
-                >
-                  {button.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+            {answered ? (
+              <AnswerReveal
+                hanzi={card.hanzi}
+                pinyin={card.pinyin}
+                translation={card.translation}
+                example={card.examples[0]}
+                correct={correct}
+                canUndo={!undoSpent}
+                canContinue={canContinue}
+                onUndo={() => resolutionRef.current?.undo()}
+                onContinue={() => resolutionRef.current?.advance()}
+              />
+            ) : (
+              <p className="max-w-sm text-sm text-fg-muted animate-[think-breathe_3s_ease-in-out_infinite] motion-reduce:animate-none">
+                {challenge.hint}
+              </p>
+            )}
+            <ChoiceGrid
+              challenge={challenge}
+              picked={picked}
+              onPick={answer}
+              onHesitate={markHesitated}
+            />
+          </>
+        ) : (
+          <div
+            aria-hidden="true"
+            className="h-80 w-full max-w-md rounded-3xl border border-line bg-surface-2"
+          />
+        )}
       </div>
     </FarmPanel>
   );

@@ -23,10 +23,10 @@ function stageLine(
   }
 }
 
-// Glass info card for the tapped plot: bottom-anchored above the nav on
-// phones, right-side panel from lg up. Reads the shared selection store
-// and offers the natural next action (harvest a ripe crop, plant an
-// empty plot).
+// Glass info card for the tapped plot: bottom-anchored above the dock on
+// phones, bottom-left beside the farm from sm up so it never lands under
+// the side panel. Reads the shared selection store and offers the natural
+// next action (harvest a ripe crop, plant an empty plot).
 export function PlotInfoCard({
   snapshot,
   now,
@@ -78,7 +78,7 @@ export function PlotInfoCard({
       aria-label={
         plot.hanzi ? `Plot ${plot.hanzi} details` : "Empty plot details"
       }
-      className="glass fixed inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-20 rounded-2xl p-4 text-fg lg:inset-x-auto lg:bottom-auto lg:right-3 lg:top-1/2 lg:w-72 lg:-translate-y-1/2"
+      className="glass-warm fixed inset-x-3 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-30 rounded-2xl p-4 text-fg sm:inset-x-auto sm:left-3 sm:w-72"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-extrabold uppercase tracking-wide text-fg-muted">

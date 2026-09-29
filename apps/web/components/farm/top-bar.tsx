@@ -1,9 +1,15 @@
 "use client";
 
+import { useRef } from "react";
+
 import type { FarmWorldCard } from "@/lib/game/types";
 import { XP_PER_LEVEL, xpIntoLevel } from "@/lib/xp";
 
 import { GameSettings } from "./game-settings";
+import { useHudTopVar } from "./hud/use-hud-top";
+
+const statChipClass =
+  "flex min-h-9 items-center gap-1 rounded-full bg-black/25 px-2.5 text-sm font-bold text-white";
 
 export function TopBar({
   flag,
@@ -33,41 +39,47 @@ export function TopBar({
   onOpenWorlds: () => void;
 }) {
   const intoLevel = xpIntoLevel(xp);
+  const barRef = useRef<HTMLElement>(null);
+  useHudTopVar(barRef);
+
   return (
-    <header className="glass fixed inset-x-3 top-3 z-20 flex items-center justify-between gap-2 rounded-2xl px-4 py-2">
+    // One bar on phones; from sm up the bar itself disappears and its two
+    // groups float as separate capsules so more of the farm shows through.
+    <header
+      ref={barRef}
+      className="glass-dark fixed inset-x-3 top-3 z-30 flex items-center gap-2 rounded-2xl px-2 py-1.5 sm:border-transparent sm:bg-transparent sm:p-0 sm:shadow-none sm:[backdrop-filter:none]"
+    >
       <button
         type="button"
         aria-label="Switch language"
         title="Switch language"
         onClick={onOpenWorlds}
-        className="flex flex-col rounded-xl px-2 py-0.5 text-left transition hover:bg-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 dark:hover:bg-white/10"
+        className="flex flex-col rounded-xl px-2 py-0.5 text-left text-white transition hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 sm:glass-dark sm:rounded-2xl sm:px-4 sm:py-1.5"
       >
-        <span className="text-sm font-extrabold leading-tight">
+        <span className="font-display text-sm font-extrabold leading-tight">
           {flag} {langName}
         </span>
-        <span className="mt-0.5 w-fit rounded-full bg-white/60 px-1.5 text-xs font-bold text-fg-muted dark:bg-black/35">
+        <span className="mt-0.5 w-fit rounded-full bg-black/25 px-1.5 text-xs font-bold text-white/85">
           {tierName}
         </span>
       </button>
-      <div className="flex items-center gap-2">
+
+      <div className="ml-auto flex items-center gap-2 sm:glass-dark sm:rounded-2xl sm:px-2.5 sm:py-1.5">
         {/* key={gold} remounts the chip so the bump replays per payout */}
         <span
           key={gold}
           data-testid="farm-gold"
-          className="flex min-h-9 items-center gap-1 rounded-full bg-white/40 px-2.5 text-sm font-bold text-fg animate-[gold-bump_600ms_ease-out] dark:bg-black/25"
+          className={`${statChipClass} animate-[gold-bump_600ms_ease-out]`}
           title="gold"
         >
           💰 {gold}
         </span>
-        <span
-          className="flex min-h-9 items-center gap-1 rounded-full bg-white/40 px-2.5 text-sm font-bold text-fg dark:bg-black/25"
-          title="day streak"
-        >
+        <span className={statChipClass} title="day streak">
           🔥 {streak}
         </span>
-        <span className="flex min-h-9 flex-col items-center justify-center rounded-full bg-white/40 px-2.5 text-xs font-bold leading-tight text-fg dark:bg-black/25">
+        <span className="flex min-h-9 flex-col items-center justify-center rounded-full bg-black/25 px-2.5 text-xs font-bold leading-tight text-white">
           <span>Lv {level}</span>
-          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-black/15">
+          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-black/35">
             <span
               className="block h-full rounded-full bg-green-500"
               style={{ width: `${(intoLevel / XP_PER_LEVEL) * 100}%` }}

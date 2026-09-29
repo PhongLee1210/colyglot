@@ -31,6 +31,7 @@ import type { BedView, FarmWorldSnapshot } from "@/lib/game/types";
 import { Buildings3D } from "./buildings-3d";
 import { FarmCameraControls } from "./camera-controls";
 import { Companion3D } from "./companion-3d";
+import { CropLabelProjector } from "./crop-label-projector";
 import { Crops3D } from "./crops-3d";
 import { Decorations3D } from "./decorations-3d";
 import { FarmBeds3D } from "./farm-beds-3d";
@@ -40,6 +41,7 @@ import { Trees3D } from "./trees-3d";
 
 const CAMERA_DISTANCE = 80;
 const SUN_OFFSET: [number, number, number] = [-28, 42, 18];
+const TONE_MAPPING_EXPOSURE = 0.9;
 
 function CameraRig({ farm }: { farm: FarmExtents }) {
   const size = useThree((state) => state.size);
@@ -56,6 +58,14 @@ function CameraRig({ farm }: { farm: FarmExtents }) {
   return (
     <OrthographicCamera
       makeDefault
+      /* Without `manual`, R3F's resize handler overwrites the default
+         camera's frustum with raw viewport halves on every size change.
+         During gradual (drag) resizes one axis of our farm-fit frustum
+         can hold the same value across the change, so the reconciler
+         skips re-applying it and the overwritten half sticks — the farm
+         drifts out of view. `manual` opts out; the frustum below is the
+         single source of truth. */
+      manual
       near={1}
       far={CAMERA_DISTANCE * 2 + 40}
       left={(-viewHeight * aspect) / 2}
@@ -233,7 +243,11 @@ export function Farm3DWorld({
       orthographic
       shadows={quality.shadowsEnabled ? "percentage" : false}
       dpr={[1, quality.dprCap]}
-      gl={{ antialias: quality.antialias, alpha: true }}
+      gl={{
+        antialias: quality.antialias,
+        alpha: true,
+        toneMappingExposure: TONE_MAPPING_EXPOSURE,
+      }}
       style={{ touchAction: "none" }}
     >
       <fog attach="fog" args={[theme.sky[1], 85, 175]} />
@@ -251,6 +265,7 @@ export function Farm3DWorld({
           worldId={snapshot.world.id}
         />
         <FxProjector beds={snapshot.beds} farm={farm} />
+        <CropLabelProjector beds={snapshot.beds} farm={farm} />
         <SelectionHighlight
           beds={snapshot.beds}
           farm={farm}

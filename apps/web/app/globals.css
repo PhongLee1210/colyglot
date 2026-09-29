@@ -96,6 +96,18 @@
   --glass-strong: rgb(255 255 255 / 0.72);
   --glass-border: rgb(255 255 255 / 0.45);
   --glass-shadow: 0 8px 24px rgb(30 41 59 / 0.12);
+
+  --glass-warm: rgb(255 250 240 / 0.62);
+  --glass-warm-strong: rgb(255 250 240 / 0.8);
+  --glass-dark: rgb(30 22 14 / 0.42);
+  --glass-edge: rgb(255 255 255 / 0.45);
+  --glass-blur: blur(14px) saturate(1.5);
+  --raised-shadow: 0 4px 0 rgb(59 42 24 / 0.32), 0 8px 18px rgb(0 0 0 / 0.2);
+  --raised-shadow-pressed: 0 1px 0 rgb(59 42 24 / 0.32);
+
+  /* Measured from the HUD topbar at runtime; every floating HUD layer
+     anchors off it so nothing overlaps when the bar wraps. */
+  --hud-top: 4.25rem;
 }
 
 [data-theme="dark"] {
@@ -157,6 +169,13 @@
   --glass: rgb(21 28 36 / 0.6);
   --glass-strong: rgb(21 28 36 / 0.78);
   --glass-border: rgb(255 255 255 / 0.12);
+
+  --glass-warm: rgb(26 22 18 / 0.62);
+  --glass-warm-strong: rgb(26 22 18 / 0.8);
+  --glass-dark: rgb(8 10 14 / 0.5);
+  --glass-edge: rgb(255 255 255 / 0.16);
+  --raised-shadow: 0 4px 0 rgb(0 0 0 / 0.45), 0 8px 18px rgb(0 0 0 / 0.35);
+  --raised-shadow-pressed: 0 1px 0 rgb(0 0 0 / 0.45);
 }
 
 @theme inline {
@@ -252,6 +271,9 @@
   --color-yellow-950: var(--yellow-950);
 
   --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    var(--font-baloo), var(--font-be-vietnam), ui-sans-serif, system-ui,
+    sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --font-hanzi: var(--font-noto-serif-sc), "Songti SC", "Noto Serif SC", serif;
 }
@@ -301,6 +323,57 @@
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+/* Warm-tinted glass over the 3D farm: neutral greys read as dirt against
+   the scene, and the white edge keeps the blur from looking muddy. */
+@utility glass-warm {
+  background-color: var(--glass-warm);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+@utility glass-dark {
+  background-color: var(--glass-dark);
+  border: 1px solid var(--glass-edge);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+/* Hard offset plus soft ambient — the chunky arcade button depth that
+   collapses on :active via `raised-pressed`. */
+@utility raised {
+  box-shadow:
+    var(--raised-shadow),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+
+@utility raised-pressed {
+  box-shadow: var(--raised-shadow-pressed);
+}
+
+@supports not (
+  (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+) {
+  :root {
+    --glass: rgb(255 255 255 / 0.94);
+    --glass-strong: rgb(255 255 255 / 0.97);
+    --glass-warm: rgb(255 250 240 / 0.95);
+    --glass-warm-strong: rgb(255 250 240 / 0.98);
+    --glass-dark: rgb(30 22 14 / 0.88);
+  }
+
+  [data-theme="dark"] {
+    --glass: rgb(21 28 36 / 0.95);
+    --glass-strong: rgb(21 28 36 / 0.98);
+    --glass-warm: rgb(26 22 18 / 0.95);
+    --glass-warm-strong: rgb(26 22 18 / 0.98);
+    --glass-dark: rgb(8 10 14 / 0.92);
+  }
 }
 
 @utility perspective-card {
@@ -530,6 +603,46 @@
   }
 }
 
+/* The right answer swells once, so success reads before the gold moves. */
+@keyframes choice-correct {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* A miss shakes sideways rather than flashing red — a crop that needs
+   another day, not a failure. */
+@keyframes choice-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+
+/* Keeps the pre-answer screen alive so a paused question never reads as a
+   frozen or broken state. */
+@keyframes think-breathe {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* Gold counter bumps when the authoritative total lands. */
 @keyframes gold-bump {
   0%,
@@ -558,5 +671,26 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.14);
   }
 }

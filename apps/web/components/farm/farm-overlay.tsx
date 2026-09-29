@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 
+// Sessions take the whole screen and must cover the HUD layer (z-30), not
+// sit under the dock and rails that float above the farm.
+
 export function FarmOverlay({ children }: { children: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-bg p-6 text-center">
+    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-bg p-6 text-center">
       {children}
     </div>
   );
@@ -10,7 +13,7 @@ export function FarmOverlay({ children }: { children: ReactNode }) {
 
 export function FarmPanel({ children }: { children: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-20 flex flex-col bg-bg">{children}</div>
+    <div className="fixed inset-0 z-40 flex flex-col bg-bg">{children}</div>
   );
 }
 

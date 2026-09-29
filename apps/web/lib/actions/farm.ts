@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { orderSessionQueue } from "@colyglot/srs";
+
 import { requireUserId } from "@/lib/auth/session";
 import {
   claimSessionHarvest,
@@ -130,17 +132,34 @@ export async function openHarvestAction(
       langs.sourceLang,
       langs.targetLang
     );
+    // One sweep, one queue: words the player is closest to losing come
+    // first, so a neglected farm is caught up from the worst end.
+    const ordered = orderSessionQueue(
+      queue.map((item) => ({
+        id: item.card.id,
+        createdAt: item.card.createdAt,
+        schedule: item.schedule
+          ? {
+              dueAt: item.schedule.dueAt,
+              intervalDays: item.schedule.intervalDays,
+            }
+          : null,
+        item,
+      })),
+      new Date()
+    );
     return {
       ok: true,
       data: {
         sessionId: session.id,
-        queue: queue.map((item) => ({
+        queue: ordered.map(({ item }) => ({
           cardId: item.card.id,
           hanzi: item.card.hanzi,
           pinyin: item.card.pinyin,
           translation: item.card.translation,
           examples: item.card.examples,
           fresh: item.schedule === null,
+          intervalDays: item.schedule?.intervalDays ?? 0,
         })),
       },
     };

@@ -10,6 +10,7 @@ import { LANG_PACKS } from "@/lib/game/content";
 import type { MusicSettings } from "@/lib/game/music";
 import { useCameraStore } from "@/lib/game/store/camera-store";
 import { useFarmStore } from "@/lib/game/store/farm-store";
+import { useHudStore } from "@/lib/game/store/hud-store";
 import {
   bindMusicPersistence,
   useMusicStore,
@@ -22,10 +23,14 @@ import { BedRail } from "./bed-rail";
 import { CoinFlightHost } from "./coin-flight-host";
 import { GameMusic } from "./game-music";
 import { HarvestSession } from "./harvest-session";
+import { ActionDock } from "./hud/action-dock";
+import { CropLabels } from "./hud/crop-labels";
+import { GoalPill } from "./hud/goal-pill";
+import { PanelContent } from "./hud/panel-content";
+import { SidePanel } from "./hud/side-panel";
 import { LoadingScreen } from "./loading-screen";
 import { NurserySession } from "./nursery-session";
 import { PlotInfoCard } from "./plot-info-card";
-import { SeedsPanel } from "./seeds-panel";
 import { ShortcutRail } from "./shortcut-rail";
 import { TitleOverlay } from "./title-overlay";
 import { TopBar } from "./top-bar";
@@ -65,9 +70,9 @@ export function FarmGame({
   const sceneReady = useSceneStore((state) => state.sceneReady);
   const { toast } = useToast();
   const [phase, setPhase] = useState<Phase>("loading");
-  const [open, setOpen] = useState<"seeds" | "nursery" | "harvest" | null>(
-    null
-  );
+  const [session, setSession] = useState<"nursery" | "harvest" | null>(null);
+  const openPanel = useHudStore((state) => state.openPanel);
+  const closePanel = useHudStore((state) => state.closePanel);
   const [busyLangKey, setBusyLangKey] = useState<string | null>(null);
   const now = useClock();
   const hydrated = useHydrated();
@@ -133,6 +138,7 @@ export function FarmGame({
         // stale plot selection from the previous world.
         useCameraStore.getState().reset();
         useSelectionStore.getState().clearSelection();
+        closePanel();
         toast(`Welcome to your ${world.name} farm`, "success");
         if (phase === "title") {
           beginPlay(world.langKey);
@@ -145,7 +151,7 @@ export function FarmGame({
         setBusyLangKey(null);
       }
     },
-    [busyLangKey, hydrate, phase, beginPlay, syncUrl, toast]
+    [busyLangKey, hydrate, phase, beginPlay, closePanel, syncUrl, toast]
   );
 
   const finishLoading = useCallback(() => {
@@ -183,82 +189,37 @@ export function FarmGame({
             onSelectWorld={selectWorld}
             onOpenWorlds={() => setPhase("title")}
           />
+          <GoalPill snapshot={current} now={now} />
           <BedRail snapshot={current} now={now} />
+          <CropLabels snapshot={current} now={now} />
           <PlotInfoCard
             snapshot={current}
             now={now}
-            onOpenSeeds={() => setOpen("seeds")}
-            onOpenHarvest={() => setOpen("harvest")}
+            onOpenSeeds={() => openPanel("seeds")}
+            onOpenHarvest={() => setSession("harvest")}
           />
           <StageLegend />
-          <nav
-            aria-label="Farm actions"
-            className="glass fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-20 flex justify-around rounded-full py-2"
-          >
-            <button
-              type="button"
-              className="flex min-h-11 flex-col items-center rounded-full px-5 text-xs font-bold transition hover:bg-white/40 active:scale-95 dark:hover:bg-white/10"
-              disabled={navDisabled}
-              onClick={() => setOpen("seeds")}
-            >
-              <span aria-hidden="true" className="text-xl">
-                🌰
-              </span>
-              Seeds
-            </button>
-            <button
-              type="button"
-              aria-label={
-                current.freshCount > 0
-                  ? `Nursery, ${current.freshCount} new seedlings`
-                  : undefined
-              }
-              className="relative flex min-h-11 flex-col items-center rounded-full px-5 text-xs font-bold transition hover:bg-white/40 active:scale-95 dark:hover:bg-white/10"
-              disabled={navDisabled}
-              onClick={() => setOpen("nursery")}
-            >
-              <span aria-hidden="true" className="text-xl">
-                🌱
-              </span>
-              Nursery
-              {current.freshCount > 0 ? (
-                <span className="absolute -top-1 right-1 rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-on-accent">
-                  {current.freshCount}
-                </span>
-              ) : null}
-            </button>
-            <button
-              type="button"
-              aria-label={
-                current.dueCount > 0
-                  ? `Harvest, ${current.dueCount} ready`
-                  : undefined
-              }
-              className="relative flex min-h-11 flex-col items-center rounded-full px-5 text-xs font-bold transition hover:bg-white/40 active:scale-95 dark:hover:bg-white/10"
-              disabled={navDisabled}
-              onClick={() => setOpen("harvest")}
-            >
-              <span aria-hidden="true" className="text-xl">
-                🧺
-              </span>
-              Harvest
-              {current.dueCount > 0 ? (
-                <span className="absolute -top-1 right-1 rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-on-accent">
-                  {current.dueCount}
-                </span>
-              ) : null}
-            </button>
-          </nav>
+          <SidePanel>
+            <PanelContent
+              snapshot={current}
+              streak={streak}
+              tierName={tier.name}
+            />
+          </SidePanel>
+          <ActionDock
+            snapshot={current}
+            disabled={navDisabled}
+            onOpenSeeds={() => openPanel("seeds")}
+            onOpenNursery={() => setSession("nursery")}
+            onOpenHarvest={() => setSession("harvest")}
+          />
           <ShortcutRail />
           <CoinFlightHost />
-          {open === "seeds" ? (
-            <SeedsPanel open onClose={() => setOpen(null)} />
+          {session === "nursery" ? (
+            <NurserySession onClose={() => setSession(null)} />
           ) : null}
-          {open === "nursery" ? (
-            <NurserySession onClose={() => setOpen(null)} />
-          ) : null}
-          {open === "harvest" ? (
-            <HarvestSession streak={streak} onClose={() => setOpen(null)} />
+          {session === "harvest" ? (
+            <HarvestSession streak={streak} onClose={() => setSession(null)} />
           ) : null}
         </div>
       ) : null}
@@ -287,7 +248,7 @@ export function FarmGame({
 
 function StageLegend() {
   return (
-    <div className="glass pointer-events-none fixed bottom-24 left-3 z-10 hidden items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold text-fg lg:flex">
+    <div className="glass-dark pointer-events-none fixed bottom-24 left-3 z-20 hidden items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold text-white lg:flex">
       <span aria-hidden="true">🌱 New</span>
       <span aria-hidden="true">⏳ Growing</span>
       <span aria-hidden="true">✨ Ready</span>

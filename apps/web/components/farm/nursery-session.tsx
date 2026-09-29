@@ -11,6 +11,7 @@ import {
   startStudySessionAction,
 } from "@/lib/actions/study";
 import { LANG_PACKS, findWord } from "@/lib/game/content";
+import { shuffle } from "@/lib/game/core/challenge";
 import { useFarmStore } from "@/lib/game/store/farm-store";
 import { ReviewGrade } from "@colyglot/srs";
 
@@ -43,17 +44,6 @@ const NURSERY_GRADES: {
 ];
 
 type Phase = "intro" | "recall" | "grade";
-
-// Fisher–Yates: `sort(() => Math.random() - 0.5)` skews positions, which
-// lets learners guess the answer slot instead of recalling the meaning.
-function shuffle<T>(items: T[]): T[] {
-  const shuffled = [...items];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
 
 function buildChoices(translation: string, pool: string[]): string[] {
   const distractors = shuffle(

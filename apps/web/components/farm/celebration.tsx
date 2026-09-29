@@ -20,7 +20,7 @@ export function HarvestCelebration({
       role="dialog"
       aria-modal="true"
       aria-label="Harvest celebration"
-      className="glass fixed inset-0 z-30 flex flex-col items-center justify-center gap-4 p-6 text-center text-fg"
+      className="glass fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 p-6 text-center text-fg"
     >
       <div
         className="pointer-events-none absolute inset-0 overflow-hidden"
