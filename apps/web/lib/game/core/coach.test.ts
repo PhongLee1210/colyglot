@@ -108,6 +108,7 @@ describe("coachHint", () => {
           dueAt: new Date(NOW.getTime() + 90 * 60 * 1000),
           intervalDays: 1,
           reviewCount: 1,
+          lapses: 0,
         },
       }),
     ];

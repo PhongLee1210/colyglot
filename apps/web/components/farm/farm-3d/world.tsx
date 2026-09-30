@@ -28,6 +28,7 @@ import { useSceneStore } from "@/lib/game/store/scene-store";
 import { useSelectionStore } from "@/lib/game/store/selection-store";
 import type { BedView, FarmWorldSnapshot } from "@/lib/game/types";
 
+import { Animals3D } from "./animals-3d";
 import { Buildings3D } from "./buildings-3d";
 import { FarmCameraControls } from "./camera-controls";
 import { Companion3D } from "./companion-3d";
@@ -293,6 +294,11 @@ export function Farm3DWorld({
           items={snapshot.items.map((item) => item.itemKey)}
         />
         <Companion3D farm={farm} />
+        <Animals3D
+          beds={snapshot.beds}
+          farm={farm}
+          items={snapshot.items.map((item) => item.itemKey)}
+        />
         <SceneReadyReporter />
       </Suspense>
     </Canvas>

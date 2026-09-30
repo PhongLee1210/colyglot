@@ -20,7 +20,13 @@ export type PlotView = {
   translation: string | null;
   plantedAt: Date | null;
   variant: number;
-  schedule: { dueAt: Date; intervalDays: number; reviewCount: number } | null;
+  schedule: {
+    dueAt: Date;
+    intervalDays: number;
+    reviewCount: number;
+    /** Total forgets — drives the cat's weak-spot bed (GAME_PLAY §6.3). */
+    lapses: number;
+  } | null;
 };
 
 export type BedView = {

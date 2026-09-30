@@ -246,6 +246,7 @@ export async function loadFarmWorldDetail(
           dueAt: cardSchedules.dueAt,
           intervalDays: cardSchedules.intervalDays,
           reviewCount: cardSchedules.reviewCount,
+          lapses: cardSchedules.lapses,
         })
         .from(farmPlots)
         .innerJoin(cards, eq(farmPlots.cardId, cards.id))
@@ -275,6 +276,7 @@ export async function loadFarmWorldDetail(
                       dueAt: row.dueAt,
                       intervalDays: row.intervalDays,
                       reviewCount: row.reviewCount ?? 0,
+                      lapses: row.lapses ?? 0,
                     }
                   : null,
             }
