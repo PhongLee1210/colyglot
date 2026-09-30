@@ -28,6 +28,12 @@ export const GREENHOUSE_PLOTS = 3;
 
 // Streak milestones pay a sweep bonus (GAME_PLAY §6.4): breaking a
 // streak takes nothing away, it just resets the multiplier to 0.
+
+// Memento thresholds honor the LONGEST streak ever, not the live one
+// (GAME_PLAY §6.4): a 7-day-ever run grants the gate wreath for good, a
+// 30-day-ever run turns the sky golden.
+export const WREATH_STREAK_DAYS = 7;
+export const GOLDEN_SKY_STREAK_DAYS = 30;
 export const STREAK_BONUS_TIERS: readonly { days: number; rate: number }[] = [
   { days: 30, rate: 0.3 },
   { days: 7, rate: 0.2 },

@@ -109,6 +109,9 @@ export type FarmWorldSnapshot = {
   forest: ForestTreeView[];
   // Consecutive days every ripe crop was swept (GAME_PLAY §6.4).
   streak: number;
+  // Best consecutive sweep run in this world's history — mementos honor
+  // it, so a broken streak never takes the wreath or sky away (§6.4).
+  longestStreak: number;
   // Per-region unlock gates and mastery (GAME_PLAY §5.3/§7), REGIONS order.
   regions: RegionStatus[];
   items: { itemKey: string; qty: number }[];

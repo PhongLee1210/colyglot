@@ -28,6 +28,7 @@ import {
   PLOTS_PER_EXPAND,
   START_PLOTS,
   STARTING_GOLD,
+  WREATH_STREAK_DAYS,
 } from "@/lib/game/core/economy";
 import { findShopItem, SHOP_ITEMS } from "@/lib/game/core/shop";
 import type {
@@ -39,7 +40,7 @@ import type {
   PlotView,
   RegionStatus,
 } from "@/lib/game/types";
-import { computeStreak, toUtcDayKey } from "@/lib/streak";
+import { computeStreak, longestStreak, toUtcDayKey } from "@/lib/streak";
 import { levelFromXp } from "@/lib/xp";
 
 import { getDb } from "../index";
@@ -379,8 +380,15 @@ export async function loadFarmWorldDetail(
   // never grown anything earns no streak, though.
   if (dueCount === 0 && (world.stats.planted > 0 || forest.length > 0)) {
     await recordSweepDay(userId, langKey, new Date());
+    const wreathGranted = await grantStreakWreathOnce(
+      userId,
+      langKey,
+      world.id
+    );
+    if (wreathGranted) items.push({ itemKey: "streak_wreath", qty: 1 });
   }
   const streak = await getSweepStreak(userId, langKey);
+  const longest = await getLongestSweepStreak(userId, langKey);
 
   const [xpRow] = await getDb()
     .select({ xp: sql<number>`coalesce(sum(${deckProgress.xp}), 0)::int` })
@@ -406,6 +414,7 @@ export async function loadFarmWorldDetail(
     beds,
     forest,
     streak,
+    longestStreak: longest,
     regions,
     items,
     freshQueue: freshCards.map((card) => ({
@@ -989,6 +998,38 @@ export async function getSweepStreak(
   );
 }
 
+export async function getLongestSweepStreak(
+  userId: string,
+  langKey: string
+): Promise<number> {
+  const rows = await getDb()
+    .select({ dayKey: farmSweepDays.dayKey })
+    .from(farmSweepDays)
+    .where(
+      and(eq(farmSweepDays.userId, userId), eq(farmSweepDays.langKey, langKey))
+    );
+  return longestStreak(rows.map((row) => row.dayKey));
+}
+
+// The 7-day-ever memento (GAME_PLAY §6.4): granted exactly once, the
+// moment the longest sweep streak reaches the threshold. Returns true
+// only on the insert that actually lands, so the caller can surface the
+// wreath in the same snapshot it was earned.
+async function grantStreakWreathOnce(
+  userId: string,
+  langKey: string,
+  worldId: string
+): Promise<boolean> {
+  const longest = await getLongestSweepStreak(userId, langKey);
+  if (longest < WREATH_STREAK_DAYS) return false;
+  const inserted = await getDb()
+    .insert(farmItems)
+    .values({ worldId, itemKey: "streak_wreath", qty: 1 })
+    .onConflictDoNothing()
+    .returning({ id: farmItems.id });
+  return inserted.length > 0;
+}
+
 export type ClaimHarvestResult = {
   alreadyClaimed: boolean;
   baseGold: number;
@@ -1071,6 +1112,7 @@ export async function claimSessionHarvest(
     const remainingDue = await countDueForLang(userId, sourceLang, targetLang);
     if (remainingDue === 0) {
       await recordSweepDay(userId, langKey, new Date());
+      await grantStreakWreathOnce(userId, langKey, world.id);
     }
   }
   const streak = await getSweepStreak(userId, langKey);

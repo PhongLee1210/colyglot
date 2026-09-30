@@ -596,6 +596,38 @@ describeIntegration("farm bed operations and harvest claim", () => {
     expect(await getSweepStreak(USER, "zh-vi")).toBe(2);
   }, 15_000);
 
+  test("a 7-day-ever sweep run grants the streak wreath once (GAME_PLAY §6.4)", async () => {
+    await startFarmWorld(USER, ZH);
+    const bedId = await gardenBedId();
+    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("谢谢")]);
+    await upsertCardSchedule(USER, planted!.planted[0].cardId, {
+      easeFactor: 2.5,
+      intervalDays: 6,
+      dueAt: new Date(Date.now() + 6 * 86_400_000),
+      reviewCount: 2,
+      consecutiveCorrect: 2,
+      lapses: 0,
+      lastReviewedAt: new Date(),
+    });
+    const DAY = 86_400_000;
+    for (let back = 6; back >= 1; back--) {
+      await recordSweepDay(USER, "zh-vi", new Date(Date.now() - back * DAY));
+    }
+    // The load records today's sweep day (nothing due), crossing 7 days
+    // ever — the wreath lands exactly once and the history is exposed.
+    const first = await loadFarmWorldDetail(USER, "zh-vi");
+    expect(first!.longestStreak).toBe(7);
+    const wreath = first!.items.find(
+      (item) => item.itemKey === "streak_wreath"
+    );
+    expect(wreath?.qty).toBe(1);
+
+    const second = await loadFarmWorldDetail(USER, "zh-vi");
+    expect(
+      second!.items.filter((item) => item.itemKey === "streak_wreath")
+    ).toHaveLength(1);
+  }, 15_000);
+
   describe("shop purchases (GAME_PLAY §6.3)", () => {
     test("buying charges gold atomically and writes farm_items once", async () => {
       await startFarmWorld(USER, ZH);

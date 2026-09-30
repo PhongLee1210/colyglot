@@ -54,6 +54,7 @@ function fixture(): FarmWorldSnapshot {
     items: [],
     forest: [],
     streak: 0,
+    longestStreak: 0,
     regions: [
       {
         key: "homestead",

@@ -34,3 +34,20 @@ export function computeStreak(dayKeys: Iterable<string>, now: Date): number {
   }
   return streak;
 }
+
+// The longest run of consecutive days ever recorded (GAME_PLAY §6.4) —
+// the wreath and the golden sky honor history, not the live streak, so
+// breaking a run never takes the mementos away.
+export function longestStreak(dayKeys: Iterable<string>): number {
+  const days = [...new Set(dayKeys)].sort();
+  let best = 0;
+  let run = 0;
+  let previous: number | null = null;
+  for (const key of days) {
+    const time = Date.parse(`${key}T00:00:00.000Z`);
+    run = previous !== null && time - previous === DAY_MS ? run + 1 : 1;
+    if (run > best) best = run;
+    previous = time;
+  }
+  return best;
+}

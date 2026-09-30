@@ -22,6 +22,7 @@ import {
 } from "@/lib/game/3d/positioning";
 import { sceneLayout } from "@/lib/game/3d/scene-layout";
 import type { FarmTheme } from "@/lib/game/content/types";
+import { GOLDEN_SKY_STREAK_DAYS } from "@/lib/game/core/economy";
 import { useCameraStore } from "@/lib/game/store/camera-store";
 import { useFxStore } from "@/lib/game/store/fx-store";
 import { useSceneStore } from "@/lib/game/store/scene-store";
@@ -44,6 +45,8 @@ import { Trees3D } from "./trees-3d";
 const CAMERA_DISTANCE = 80;
 const SUN_OFFSET: [number, number, number] = [-28, 42, 18];
 const TONE_MAPPING_EXPOSURE = 0.9;
+// Golden-hour palette for the 30-day-ever sky reskin (GAME_PLAY §6.4).
+const GOLDEN_SKY: [string, string] = ["#f7d98c", "#e8b968"];
 
 function CameraRig({ farm }: { farm: FarmExtents }) {
   const size = useThree((state) => state.size);
@@ -85,15 +88,19 @@ function CameraRig({ farm }: { farm: FarmExtents }) {
   );
 }
 
-function Sun({ radius }: { radius: number }) {
+function Sun({ radius, golden }: { radius: number; golden?: boolean }) {
   const shadowSpan = radius * 1.6;
   return (
     <>
-      <hemisphereLight args={["#cfeaf7", "#7fa86a", 0.85]} />
+      <hemisphereLight
+        args={
+          golden ? ["#ffe9b8", "#b89a5e", 0.85] : ["#cfeaf7", "#7fa86a", 0.85]
+        }
+      />
       <directionalLight
         position={SUN_OFFSET}
-        intensity={1.9}
-        color="#fff2dc"
+        intensity={golden ? 2.05 : 1.9}
+        color={golden ? "#ffd98f" : "#fff2dc"}
         castShadow
       >
         <orthographicCamera
@@ -111,7 +118,7 @@ function Sun({ radius }: { radius: number }) {
       <directionalLight
         position={[24, 18, -20]}
         intensity={0.35}
-        color="#cfe4ff"
+        color={golden ? "#ffd7a1" : "#cfe4ff"}
       />
     </>
   );
@@ -239,6 +246,10 @@ export function Farm3DWorld({
     () => sceneLayout(snapshot.world.id, farm),
     [snapshot.world.id, farm]
   );
+  // The 30-day-ever sky reskin (GAME_PLAY §6.4): fog and light go golden,
+  // and they stay golden — the memento honors history, not the live run.
+  const goldenSky = snapshot.longestStreak >= GOLDEN_SKY_STREAK_DAYS;
+  const sky = goldenSky ? GOLDEN_SKY : theme.sky;
 
   return (
     <Canvas
@@ -252,11 +263,11 @@ export function Farm3DWorld({
       }}
       style={{ touchAction: "none" }}
     >
-      <fog attach="fog" args={[theme.sky[1], 85, 175]} />
+      <fog attach="fog" args={[sky[1], 85, 175]} />
       <Suspense fallback={null}>
         <CameraRig farm={farm} />
         <FarmCameraControls farm={farm} />
-        <Sun radius={layout.islandRadius} />
+        <Sun radius={layout.islandRadius} golden={goldenSky} />
         <Terrain3D radius={layout.islandRadius} materials={materials} />
         <FarmBeds3D beds={snapshot.beds} farm={farm} materials={materials} />
         <Plots3D

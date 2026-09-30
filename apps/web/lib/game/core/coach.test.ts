@@ -63,6 +63,7 @@ function snapshot(
       },
     ],
     streak: 0,
+    longestStreak: 0,
     freshQueue: [],
     dueCount: counts.dueCount ?? 0,
     freshCount: counts.freshCount ?? 0,
