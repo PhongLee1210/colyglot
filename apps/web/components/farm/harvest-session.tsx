@@ -13,11 +13,12 @@ import {
   type GradeResult,
 } from "@/lib/actions/study";
 import type { ActionResult } from "@/lib/actions/types";
-import { playAnswerFeedback } from "@/lib/game/audio/sfx";
+import { playAnswerFeedback, playPressHaptic } from "@/lib/game/audio/sfx";
 import { LANG_PACKS } from "@/lib/game/content";
 import {
   buildChallenge,
   CORRECT_HOLD_MS,
+  FEEDBACK_DELAY_MS,
   gradeFromResponse,
   UNDO_WINDOW_MS,
   WRONG_HOLD_MS,
@@ -29,13 +30,14 @@ import { type HarvestPreview } from "@/lib/game/core/economy";
 import { useFarmStore } from "@/lib/game/store/farm-store";
 import { useFxStore, type HarvestFxInput } from "@/lib/game/store/fx-store";
 import { applyClaim } from "@/lib/game/store/reducers";
-import type { HarvestCard } from "@/lib/game/types";
+import type { FarmReviewEvent, HarvestCard } from "@/lib/game/types";
 
 import { HarvestCelebration } from "./celebration";
 import { BackToFarmButton, FarmOverlay, FarmPanel } from "./farm-overlay";
 import { AnswerReveal } from "./harvest/answer-reveal";
 import { ChallengePrompt } from "./harvest/challenge-prompt";
 import { ChoiceGrid } from "./harvest/choice-grid";
+import { LifecycleCeremony } from "./harvest/lifecycle-ceremony";
 import { SpeakButton } from "./speak-button";
 
 // Matches the `harvest-pop` keyframe, so the reward clears exactly as it
@@ -76,13 +78,7 @@ function intervalHint(intervalDays: number): string {
       : `${intervalDays}d`;
 }
 
-export function HarvestSession({
-  onClose,
-  streak,
-}: {
-  onClose: () => void;
-  streak: number;
-}) {
+export function HarvestSession({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const { toast } = useToast();
   const snapshot = useFarmStore((state) => state.snapshot);
@@ -115,8 +111,14 @@ export function HarvestSession({
   const [claim, setClaim] = useState<{
     goldAwarded: number;
     cardsHarvested: number;
+    streak: number;
+    streakBonus: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A graduation/demotion pauses the sweep until the player acknowledges
+  // it; the graded card's follow-up queue waits in the ref.
+  const [ceremony, setCeremony] = useState<FarmReviewEvent | null>(null);
+  const ceremonyNextRef = useRef<HarvestCard[] | null>(null);
 
   const langKey = snapshot?.world.langKey ?? null;
   const card = queue?.[0] ?? null;
@@ -195,6 +197,8 @@ export function HarvestSession({
             setClaim({
               goldAwarded: result.data.goldAwarded,
               cardsHarvested: result.data.cardsHarvested,
+              streak: result.data.streak,
+              streakBonus: result.data.streakBonus,
             });
             return;
           }
@@ -242,8 +246,18 @@ export function HarvestSession({
       }
       const remaining = (queue ?? []).slice(1);
       const next = result.data.requeued ? [...remaining, target] : remaining;
-      startCard(next);
       setBusy(false);
+      if (result.data.farmEvent) {
+        // The sweep stops for the word's big moment (GAME_PLAY §8.2):
+        // the queue resumes when the ceremony closes.
+        ceremonyNextRef.current = next;
+        setCeremony(result.data.farmEvent);
+        if (result.data.farmEvent.type === "graduation") {
+          useFxStore.getState().react("cheer");
+        }
+        return;
+      }
+      startCard(next);
       if (next.length === 0) {
         void finish(reviewedCount);
       }
@@ -285,7 +299,10 @@ export function HarvestSession({
       const correct = choice === challenge.answer;
       setPicked(choice);
       setBusy(true);
-      playAnswerFeedback(correct);
+      // 0–80ms: the press sinks with a haptic nudge; the graded feedback
+      // beat (color burst + tone) lands at 120ms (GAME_PLAY §8.1).
+      playPressHaptic();
+      window.setTimeout(() => playAnswerFeedback(correct), FEEDBACK_DELAY_MS);
       const grade = gradeFromResponse({
         correct,
         elapsedMs,
@@ -335,6 +352,18 @@ export function HarvestSession({
 
   const markHesitated = useCallback(() => setHesitated(true), []);
 
+  const closeCeremony = useCallback(() => {
+    const next = ceremonyNextRef.current;
+    ceremonyNextRef.current = null;
+    setCeremony(null);
+    if (next) {
+      startCard(next);
+      if (next.length === 0) {
+        void finish(reviewed);
+      }
+    }
+  }, [startCard, finish, reviewed]);
+
   if (!snapshot) return null;
 
   if (claim) {
@@ -342,7 +371,6 @@ export function HarvestSession({
       <HarvestCelebration
         claim={claim}
         reviewed={reviewed}
-        streak={streak}
         onDone={() => {
           // The opaque grading panel is gone with the celebration, so
           // this is the first moment the farm can actually show the
@@ -433,6 +461,9 @@ export function HarvestSession({
 
   return (
     <FarmPanel>
+      {ceremony ? (
+        <LifecycleCeremony event={ceremony} onDone={closeCeremony} />
+      ) : null}
       <header className="flex items-center justify-between border-b border-line p-4">
         <h1 className="text-lg font-extrabold">🧺 Harvest</h1>
         <span className="text-sm text-fg-muted">

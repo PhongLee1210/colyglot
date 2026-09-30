@@ -18,6 +18,7 @@ import type { FarmMaterials } from "@/lib/game/3d/material-factory";
 import type { BedLayout, FarmExtents } from "@/lib/game/3d/positioning";
 import { PLOT_SIZE, plotCenter } from "@/lib/game/3d/positioning";
 import { shade } from "@/lib/game/art/palette";
+import { wiltIntensity } from "@/lib/game/core/crops";
 import { useFxStore } from "@/lib/game/store/fx-store";
 import { useSelectionStore } from "@/lib/game/store/selection-store";
 import type { BedView } from "@/lib/game/types";
@@ -69,12 +70,14 @@ export function Plots3D({
   materials,
   accent,
   worldId,
+  now,
 }: {
   beds: BedView[];
   farm: FarmExtents;
   materials: FarmMaterials;
   accent: string;
   worldId: string;
+  now: Date | null;
 }) {
   const meshRef = useRef<InstancedMesh>(null!);
   const selectPlot = useSelectionStore((state) => state.selectPlot);
@@ -131,6 +134,12 @@ export function Plots3D({
     () => new Color(shade(soilHex, -0.45)),
     [soilHex]
   );
+  // Cracked, thirsty soil under a wilting crop (GAME_PLAY §4): dries out
+  // proportionally with the overdue ratio, fading back as it recovers.
+  const dryColor = useMemo(
+    () => new Color(shade(soilHex, -0.32)).lerp(new Color("#9a7d52"), 0.35),
+    [soilHex]
+  );
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
@@ -143,6 +152,20 @@ export function Plots3D({
           .map((plot) => `${bed.id}:${plot.slotIndex}`)
       )
     );
+    const wiltByKey = new Map(
+      beds.flatMap((bed) =>
+        bed.plots.flatMap((plot) =>
+          plot.cardId && now
+            ? ([
+                [
+                  `${bed.id}:${plot.slotIndex}`,
+                  wiltIntensity(plot.schedule, now),
+                ],
+              ] as [string, number][])
+            : []
+        )
+      )
+    );
     instances.forEach((instance, i) => {
       // Tiles inside an active expansion window are owned by useFrame;
       // writing their rest pose here would snap the grow-up mid-flight.
@@ -153,18 +176,30 @@ export function Plots3D({
         instance.position.z
       );
       mesh.setMatrixAt(i, matrix);
+      const wilt = wiltByKey.get(instance.key) ?? 0;
       const color =
         instance.key === selectedKey
           ? selectedColor
           : plantedKeys.has(instance.key)
-            ? plantedColor
+            ? wilt > 0
+              ? _color.copy(plantedColor).lerp(dryColor, wilt)
+              : plantedColor
             : emptyColor;
       mesh.setColorAt(i, color);
     });
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
-  }, [beds, instances, plantedColor, emptyColor, selectedColor, selectedKey]);
+  }, [
+    beds,
+    instances,
+    plantedColor,
+    emptyColor,
+    selectedColor,
+    selectedKey,
+    dryColor,
+    now,
+  ]);
 
   useFrame(() => {
     if (expansionsRef.current.size === 0) return;

@@ -1,5 +1,7 @@
 import { ReviewGrade } from "@colyglot/srs";
 
+import { sharesRadical } from "@/lib/game/core/hanzi";
+
 // The review question gets harder as the crop matures (GAME_PLAY §3.1): a
 // tree can only grow old if the player keeps winning a harder question, so
 // a big tree cannot be faked by tapping through easy recognition.
@@ -29,6 +31,17 @@ export const CHOICE_COUNT = 4;
 export const CORRECT_HOLD_MS = 900;
 export const WRONG_HOLD_MS = 1500;
 export const UNDO_WINDOW_MS = 2000;
+
+// The answer feedback lands on a deliberate beat: the button sinks
+// immediately (0–80ms), then the color burst, chime and shake all land
+// together at 120ms (GAME_PLAY §8.1, "120 ms" row).
+export const FEEDBACK_DELAY_MS = 120;
+export const SHAKE_MS = 120;
+
+// Early taps in the last instant of a hold still count for the next
+// question (GAME_PLAY §8.4 rule 3): a tap buffered within this window of
+// the next grid appearing replays onto the choice at the same position.
+export const INPUT_BUFFER_MS = 120;
 
 export type ChallengeWord = {
   hanzi: string;
@@ -142,19 +155,24 @@ function distractorRules(
     case "growing":
       return [(candidate) => candidate.packKey === word.packKey];
     case "mature":
+      // Same radical OR same sound: both are the ways a mature reader
+      // actually confuses two words (GAME_PLAY §3.1).
       return [
         (candidate) =>
-          sharesCharacter(candidate.hanzi, word.hanzi) ||
-          tonelessPinyin(candidate.pinyin) === tonelessPinyin(word.pinyin),
+          sharesRadical(candidate.hanzi, word.hanzi) ||
+          nearPinyin(candidate.pinyin, word.pinyin),
       ];
     case "ancient":
+      // Near-identical: prefer radical AND sound together, degrade to
+      // either — the choice grid must read like a fine-discrimination test.
       return [
         (candidate) =>
-          sharesCharacter(candidate.hanzi, word.hanzi) &&
+          sharesRadical(candidate.hanzi, word.hanzi) &&
           nearPinyin(candidate.pinyin, word.pinyin),
         (candidate) =>
-          sharesCharacter(candidate.hanzi, word.hanzi) ||
+          sharesRadical(candidate.hanzi, word.hanzi) ||
           nearPinyin(candidate.pinyin, word.pinyin),
+        (candidate) => sharesCharacter(candidate.hanzi, word.hanzi),
       ];
   }
 }

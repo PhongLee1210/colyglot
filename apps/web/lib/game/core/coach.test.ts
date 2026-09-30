@@ -29,6 +29,7 @@ function snapshot(
     name: "Garden Bed",
     plotCount: plots.length,
     position: 0,
+    kind: "garden",
     plots,
   };
   return {
@@ -41,6 +42,8 @@ function snapshot(
     },
     beds: [bed],
     items: [],
+    forest: [],
+    streak: 0,
     freshQueue: [],
     dueCount: counts.dueCount ?? 0,
     freshCount: counts.freshCount ?? 0,

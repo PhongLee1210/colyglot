@@ -2,12 +2,15 @@ import { describe, expect, test } from "bun:test";
 
 import { ReviewGrade } from "@colyglot/srs";
 
-import { cropStage, formatWait } from "./crops";
+import { cropStage, formatWait, wiltIntensity } from "./crops";
 import {
+  applyStreakBonus,
   baseHarvestGold,
   expandBedCost,
+  GRADUATION_INTERVAL_DAYS,
   harvestGold,
   harvestPreview,
+  streakBonusRate,
 } from "./economy";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -54,6 +57,27 @@ describe("economy", () => {
       total: 62,
     });
   });
+
+  test("graduation threshold sits at the 21-day memory mark", () => {
+    expect(GRADUATION_INTERVAL_DAYS).toBe(21);
+  });
+
+  test("streak bonuses step at 3 / 7 / 30 days (GAME_PLAY §6.4)", () => {
+    expect(streakBonusRate(0)).toBe(0);
+    expect(streakBonusRate(2)).toBe(0);
+    expect(streakBonusRate(3)).toBe(0.1);
+    expect(streakBonusRate(6)).toBe(0.1);
+    expect(streakBonusRate(7)).toBe(0.2);
+    expect(streakBonusRate(29)).toBe(0.2);
+    expect(streakBonusRate(30)).toBe(0.3);
+  });
+
+  test("the sweep bonus rounds onto the session gold", () => {
+    expect(applyStreakBonus(50, 3)).toBe(5);
+    expect(applyStreakBonus(50, 7)).toBe(10);
+    expect(applyStreakBonus(50, 30)).toBe(15);
+    expect(applyStreakBonus(50, 1)).toBe(0);
+  });
 });
 
 describe("cropStage", () => {
@@ -85,6 +109,32 @@ describe("cropStage", () => {
         now
       )
     ).toBe("urgent");
+  });
+});
+
+describe("wiltIntensity", () => {
+  const now = new Date("2026-09-27T12:00:00Z");
+  const schedule = (ratio: number) => ({
+    dueAt: new Date(now.getTime() - ratio * 10 * DAY),
+    intervalDays: 10,
+  });
+
+  test("grows proportionally with the overdue ratio (GAME_PLAY §4)", () => {
+    expect(
+      wiltIntensity(
+        { dueAt: new Date(now.getTime() + DAY), intervalDays: 1 },
+        now
+      )
+    ).toBe(0);
+    expect(wiltIntensity(schedule(0.5), now)).toBe(0);
+    expect(wiltIntensity(schedule(1), now)).toBe(0);
+    expect(wiltIntensity(schedule(2), now)).toBe(0.5);
+    expect(wiltIntensity(schedule(3), now)).toBe(1);
+    expect(wiltIntensity(schedule(9), now)).toBe(1);
+  });
+
+  test("no schedule never wilts", () => {
+    expect(wiltIntensity(null, now)).toBe(0);
   });
 });
 

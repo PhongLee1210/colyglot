@@ -4,7 +4,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Euler, InstancedMesh, Matrix4, Quaternion, Vector3 } from "three";
+import {
+  Color,
+  Euler,
+  InstancedMesh,
+  Matrix4,
+  Quaternion,
+  Vector3,
+} from "three";
 
 import {
   CROP_SWAY,
@@ -25,7 +32,12 @@ import type { FarmMaterials } from "@/lib/game/3d/material-factory";
 import type { FarmExtents } from "@/lib/game/3d/positioning";
 import { cropVariant } from "@/lib/game/art/variants";
 import type { FarmTheme } from "@/lib/game/content/types";
-import { cropStage, formatWait, type CropStage } from "@/lib/game/core/crops";
+import {
+  cropStage,
+  formatWait,
+  wiltIntensity,
+  type CropStage,
+} from "@/lib/game/core/crops";
 import { useFxStore } from "@/lib/game/store/fx-store";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
 
@@ -48,6 +60,9 @@ type CropBase = {
   rotationY: number;
   scale: number;
   phase: number;
+  // 0..1 wilting intensity, proportional to the overdue ratio (GAME_PLAY
+  // §4): 0 at the urgent threshold, fully gray and drooped at ratio 3.
+  wilt: number;
 };
 
 type CropBadge = {
@@ -66,6 +81,23 @@ const _euler = new Euler();
 const _quaternion = new Quaternion();
 const _scale = new Vector3();
 const _position = new Vector3();
+const _color = new Color();
+
+// Droop grows with the overdue ratio (GAME_PLAY §4): a slight lean at
+// the urgent threshold, a hard lean plus desaturation by ratio 3.
+const WILT_TILT_RAD = 0.42;
+const WILT_SQUASH = 0.22;
+const WILT_DESATURATION = 0.45;
+
+function setWiltColor(mesh: InstancedMesh, index: number, wilt: number) {
+  if (wilt <= 0) {
+    _color.setRGB(1, 1, 1);
+  } else {
+    const gray = 1 - WILT_DESATURATION * wilt;
+    _color.setRGB(gray + (1 - gray) * 0.1, gray, gray + (1 - gray) * 0.15);
+  }
+  mesh.setColorAt(index, _color);
+}
 
 export function Crops3D({
   snapshot,
@@ -135,6 +167,7 @@ export function Crops3D({
           rotationY: variant * 2.1 + plot.slotIndex * 0.7,
           scale: 0.92 + variant * 0.08,
           phase: (plot.slotIndex + bedIndex * 3) * 1.7,
+          wilt: wiltIntensity(plot.schedule, reference),
         };
         bases[stage].push(base);
         basesByKey.set(key, base);
@@ -262,15 +295,17 @@ export function Crops3D({
           scale *= readyBreath(time, base.phase);
         }
         _euler.set(
-          swayX(time, base.phase, sway),
+          swayX(time, base.phase, sway) + WILT_TILT_RAD * base.wilt,
           base.rotationY,
-          swayZ(time, base.phase, sway)
+          swayZ(time, base.phase, sway) + WILT_TILT_RAD * 0.6 * base.wilt
         );
         _quaternion.setFromEuler(_euler);
         _position.copy(base.position);
-        _scale.setScalar(scale);
+        _scale.set(scale, scale * (1 - WILT_SQUASH * base.wilt), scale);
         _matrix.compose(_position, _quaternion, _scale);
-        mesh.setMatrixAt(cursor++, _matrix);
+        mesh.setMatrixAt(cursor, _matrix);
+        setWiltColor(mesh, cursor, base.wilt);
+        cursor++;
       }
       if (shiftsRef.current.size > 0) {
         for (const [key, shift] of shiftsRef.current) {
@@ -294,7 +329,9 @@ export function Crops3D({
           _position.copy(base.position);
           _scale.setScalar(base.scale * morphOutScale(p));
           _matrix.compose(_position, _quaternion, _scale);
-          mesh.setMatrixAt(cursor++, _matrix);
+          mesh.setMatrixAt(cursor, _matrix);
+          setWiltColor(mesh, cursor, 0);
+          cursor++;
         }
       }
       for (const ghost of harvests) {
@@ -318,12 +355,16 @@ export function Crops3D({
           (0.92 + variant * 0.08) * Math.max(harvestScale(p), 0)
         );
         _matrix.compose(_position, _quaternion, _scale);
-        mesh.setMatrixAt(cursor++, _matrix);
+        mesh.setMatrixAt(cursor, _matrix);
+        setWiltColor(mesh, cursor, 0);
+        cursor++;
       }
       for (let i = cursor; i < capacity; i++) {
         mesh.setMatrixAt(i, PARKED_MATRIX);
+        setWiltColor(mesh, i, 0);
       }
       mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     });
   });
 

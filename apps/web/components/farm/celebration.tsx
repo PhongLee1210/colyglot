@@ -7,12 +7,15 @@ const LEAVES = ["🍃", "🌾", "✨"];
 export function HarvestCelebration({
   claim,
   reviewed,
-  streak,
   onDone,
 }: {
-  claim: { goldAwarded: number; cardsHarvested: number };
+  claim: {
+    goldAwarded: number;
+    cardsHarvested: number;
+    streak: number;
+    streakBonus: number;
+  };
   reviewed: number;
-  streak: number;
   onDone: () => void;
 }) {
   return (
@@ -54,7 +57,8 @@ export function HarvestCelebration({
           {claim.cardsHarvested} crops harvested · {reviewed} words reviewed
         </p>
         <p className="text-sm font-semibold">
-          🔥 Streak: {streak} day{streak === 1 ? "" : "s"}
+          🔥 Streak: {claim.streak} day{claim.streak === 1 ? "" : "s"}
+          {claim.streakBonus > 0 ? ` · +${claim.streakBonus} sweep bonus` : ""}
         </p>
         {Array.from({ length: 6 }, (_, i) => (
           <span

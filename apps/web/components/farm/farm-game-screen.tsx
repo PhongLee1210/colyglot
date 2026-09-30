@@ -3,10 +3,10 @@ import { connection } from "next/server";
 
 import { getUserId } from "@/lib/auth/session";
 import {
+  getSweepStreak,
   listFarmWorlds,
   loadFarmWorldDetail,
 } from "@/lib/db/repositories/farm";
-import { getCurrentStreak } from "@/lib/db/repositories/study";
 import { getMusicSettings } from "@/lib/db/repositories/user-settings";
 import { LANG_PACKS } from "@/lib/game/content";
 import type { FarmWorldCard } from "@/lib/game/types";
@@ -26,9 +26,8 @@ export async function FarmGameScreen({ langKey }: { langKey?: string }) {
   if (langKey && !LANG_PACKS[langKey]) {
     redirect("/");
   }
-  const [overviews, streak, musicSettings] = await Promise.all([
+  const [overviews, musicSettings] = await Promise.all([
     listFarmWorlds(userId),
-    getCurrentStreak(userId),
     getMusicSettings(userId),
   ]);
 
@@ -40,7 +39,12 @@ export async function FarmGameScreen({ langKey }: { langKey?: string }) {
     redirect("/sign-in");
   }
 
-  const snapshot = await loadFarmWorldDetail(userId, effectiveLangKey);
+  const [snapshot, streak] = await Promise.all([
+    loadFarmWorldDetail(userId, effectiveLangKey),
+    // The streak counts swept farms per world (GAME_PLAY §6.4), not bare
+    // review days — the snapshot recomputes it, the prop covers the boot.
+    getSweepStreak(userId, effectiveLangKey),
+  ]);
 
   const worlds: FarmWorldCard[] = Object.values(LANG_PACKS).map((pack) => {
     const overview = overviews.find(

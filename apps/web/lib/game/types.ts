@@ -1,5 +1,9 @@
 import type { CardExample } from "@/lib/game/content/types";
 
+// One sweep covers at most this many crops; the badge honestly shows
+// "50+" past it so the player knows a second sweep is waiting.
+export const DUE_SWEEP_LIMIT = 50;
+
 export type FarmStats = {
   planted: number;
   harvested: number;
@@ -23,7 +27,31 @@ export type BedView = {
   name: string;
   plotCount: number;
   position: number;
+  // Greenhouse beds hold demoted words only (GAME_PLAY §5.2).
+  kind: "garden" | "greenhouse";
   plots: PlotView[];
+};
+
+// A graduated word living in the Forest (GAME_PLAY §5.1) — derived from
+// the SM-2 schedule, never stored as its own row.
+export type ForestTreeView = {
+  cardId: string;
+  hanzi: string;
+  pinyin: string;
+  translation: string;
+  intervalDays: number;
+};
+
+// A lifecycle crossing surfaced by a grade commit (GAME_PLAY §5): the
+// word graduated into the Forest, or fell back down to a plot.
+export type FarmReviewEvent = {
+  type: "graduation" | "demotion";
+  hanzi: string;
+  pinyin: string;
+  translation: string;
+  intervalDays: number;
+  replanted: boolean;
+  greenhouse: boolean;
 };
 
 export type FreshCardView = {
@@ -54,6 +82,9 @@ export type FarmWorldSnapshot = {
     stats: FarmStats;
   };
   beds: BedView[];
+  forest: ForestTreeView[];
+  // Consecutive days every ripe crop was swept (GAME_PLAY §6.4).
+  streak: number;
   items: { itemKey: string; qty: number }[];
   freshQueue: FreshCardView[];
   dueCount: number;

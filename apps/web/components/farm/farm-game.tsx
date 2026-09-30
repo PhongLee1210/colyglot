@@ -219,7 +219,7 @@ export function FarmGame({
             <NurserySession onClose={() => setSession(null)} />
           ) : null}
           {session === "harvest" ? (
-            <HarvestSession streak={streak} onClose={() => setSession(null)} />
+            <HarvestSession onClose={() => setSession(null)} />
           ) : null}
         </div>
       ) : null}

@@ -15,13 +15,20 @@ import postgres from "postgres";
 import type { SeedWord } from "@/lib/game/content/types";
 import { createCard, createDeck } from "../repositories/content";
 import {
+  applyFarmReviewHooks,
   claimSessionHarvest,
   expandFarmBed,
+  getSweepStreak,
   loadFarmWorldDetail,
   plantSeeds,
+  recordSweepDay,
   startFarmWorld,
 } from "../repositories/farm";
-import { appendReviewLog, openStudySession } from "../repositories/study";
+import {
+  appendReviewLog,
+  openStudySession,
+  upsertCardSchedule,
+} from "../repositories/study";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
 const describeIntegration = databaseUrl ? describe : describe.skip;
@@ -65,7 +72,7 @@ describeIntegration("farm bed operations and harvest claim", () => {
   });
 
   beforeEach(async () => {
-    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, deck_progress, farm_worlds cascade`;
+    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, deck_progress, farm_worlds, farm_sweep_days cascade`;
   });
 
   async function gardenBedId(): Promise<string> {
@@ -164,9 +171,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
     });
 
     const claim = await claimSessionHarvest(USER, session.id, "zh-vi");
-    expect(claim).toEqual({
+    // The planted card has no schedule row in this fixture, so it still
+    // reads as due after the claim: no sweep day, no streak, no bonus.
+    expect(claim).toMatchObject({
       alreadyClaimed: false,
       goldAwarded: 8,
+      streakBonus: 0,
+      streak: 0,
       cardsHarvested: 1,
       gold: 48,
     });
@@ -212,5 +223,195 @@ describeIntegration("farm bed operations and harvest claim", () => {
     // FORGOT on a fresh card = 1, GOOD relearn = 0, steady GOOD = 8.
     expect(claim!.goldAwarded).toBe(9);
     expect(claim!.cardsHarvested).toBe(2);
+  }, 15_000);
+
+  test("a word crossing 21 days graduates: plot freed, forest gains a tree", async () => {
+    await startFarmWorld(USER, ZH);
+    const bedId = await gardenBedId();
+    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("你好")]);
+    const cardId = planted!.planted[0].cardId;
+
+    // The committed review pushed the interval past the graduation mark.
+    await upsertCardSchedule(USER, cardId, {
+      easeFactor: 2.5,
+      intervalDays: 24,
+      dueAt: new Date(Date.now() + 24 * 86_400_000),
+      reviewCount: 5,
+      consecutiveCorrect: 5,
+      lapses: 0,
+      lastReviewedAt: new Date(),
+    });
+
+    const event = await applyFarmReviewHooks(USER, cardId, {
+      intervalDaysBefore: 15,
+      newIntervalDays: 24,
+      grade: ReviewGrade.GOOD,
+    });
+    expect(event).toMatchObject({
+      type: "graduation",
+      hanzi: "你好",
+      intervalDays: 24,
+    });
+
+    const detail = await loadFarmWorldDetail(USER, "zh-vi");
+    expect(detail!.beds[0].plots[0].cardId).toBeNull();
+    expect(detail!.forest).toHaveLength(1);
+    expect(detail!.forest[0]).toMatchObject({
+      hanzi: "你好",
+      intervalDays: 24,
+    });
+  }, 15_000);
+
+  test("a lapsed forest word demotes back into a free plot", async () => {
+    await startFarmWorld(USER, ZH);
+    const bedId = await gardenBedId();
+    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("你好")]);
+    const cardId = planted!.planted[0].cardId;
+
+    // Graduate first, then the schedule resets on a FORGOT review.
+    await applyFarmReviewHooks(USER, cardId, {
+      intervalDaysBefore: 15,
+      newIntervalDays: 24,
+      grade: ReviewGrade.GOOD,
+    });
+    const event = await applyFarmReviewHooks(USER, cardId, {
+      intervalDaysBefore: 24,
+      newIntervalDays: 1,
+      grade: ReviewGrade.FORGOT,
+    });
+    expect(event).toMatchObject({
+      type: "demotion",
+      hanzi: "你好",
+      replanted: true,
+      greenhouse: false,
+    });
+
+    const detail = await loadFarmWorldDetail(USER, "zh-vi");
+    expect(detail!.beds[0].plots[0].hanzi).toBe("你好");
+    expect(detail!.forest).toHaveLength(0);
+  }, 15_000);
+
+  test("a full farm sends demoted words to the greenhouse, three slots max", async () => {
+    await startFarmWorld(USER, ZH);
+    const bedId = await gardenBedId();
+    const hanzi = ["一", "二", "三", "四", "五", "六"];
+    const planted = await plantSeeds(USER, "zh-vi", bedId, hanzi.map(word));
+    const cardOf = (index: number) => planted!.planted[index].cardId;
+
+    // Graduate every word; the garden empties.
+    for (let i = 0; i < hanzi.length; i++) {
+      await applyFarmReviewHooks(USER, cardOf(i), {
+        intervalDaysBefore: 15,
+        newIntervalDays: 24,
+        grade: ReviewGrade.GOOD,
+      });
+    }
+    // Refill the garden with new plantings, leaving no free plot.
+    await plantSeeds(USER, "zh-vi", bedId, [
+      word("九"),
+      word("十"),
+      word("十一"),
+      word("十二"),
+      word("十三"),
+      word("十四"),
+    ]);
+
+    const first = await applyFarmReviewHooks(USER, cardOf(0), {
+      intervalDaysBefore: 24,
+      newIntervalDays: 1,
+      grade: ReviewGrade.FORGOT,
+    });
+    expect(first).toMatchObject({
+      type: "demotion",
+      replanted: true,
+      greenhouse: true,
+    });
+
+    await applyFarmReviewHooks(USER, cardOf(1), {
+      intervalDaysBefore: 24,
+      newIntervalDays: 1,
+      grade: ReviewGrade.FORGOT,
+    });
+    await applyFarmReviewHooks(USER, cardOf(2), {
+      intervalDaysBefore: 24,
+      newIntervalDays: 1,
+      grade: ReviewGrade.FORGOT,
+    });
+
+    const detail = await loadFarmWorldDetail(USER, "zh-vi");
+    const greenhouse = detail!.beds.find((bed) => bed.kind === "greenhouse");
+    expect(greenhouse).toBeDefined();
+    expect(greenhouse!.plots.filter((plot) => plot.hanzi)).toHaveLength(3);
+    expect(greenhouse!.plotCount).toBe(3);
+
+    // The fourth demotion overflows the greenhouse but never throws.
+    const overflow = await applyFarmReviewHooks(USER, cardOf(3), {
+      intervalDaysBefore: 24,
+      newIntervalDays: 1,
+      grade: ReviewGrade.FORGOT,
+    });
+    expect(overflow).toMatchObject({ type: "demotion", replanted: false });
+  }, 30_000);
+
+  test("clearing the farm records a sweep day and pays the streak bonus", async () => {
+    await startFarmWorld(USER, ZH);
+    const bedId = await gardenBedId();
+    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("你好")]);
+    const cardId = planted!.planted[0].cardId;
+
+    // The review committed and moved the word out of the due queue.
+    await upsertCardSchedule(USER, cardId, {
+      easeFactor: 2.5,
+      intervalDays: 6,
+      dueAt: new Date(Date.now() + 6 * 86_400_000),
+      reviewCount: 2,
+      consecutiveCorrect: 2,
+      lapses: 0,
+      lastReviewedAt: new Date(),
+    });
+    // Two earlier sweep days put today's sweep at a 3-day streak.
+    const DAY = 86_400_000;
+    await recordSweepDay(USER, "zh-vi", new Date(Date.now() - 2 * DAY));
+    await recordSweepDay(USER, "zh-vi", new Date(Date.now() - DAY));
+
+    const session = await openStudySession(USER);
+    await appendReviewLog(USER, {
+      cardId,
+      sessionId: session.id,
+      grade: ReviewGrade.GOOD,
+      intervalDaysBefore: 6,
+    });
+
+    const claim = await claimSessionHarvest(USER, session.id, "zh-vi");
+    // Base 8 + 10% streak bonus (3-day streak, GAME_PLAY §6.4).
+    expect(claim).toMatchObject({
+      goldAwarded: 9,
+      baseGold: 8,
+      streakBonus: 1,
+      streak: 3,
+      cardsHarvested: 1,
+    });
+    expect(await getSweepStreak(USER, "zh-vi")).toBe(3);
+  }, 15_000);
+
+  test("a farm with nothing due keeps the streak alive on load", async () => {
+    await startFarmWorld(USER, ZH);
+    const bedId = await gardenBedId();
+    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("你好")]);
+    // The word is growing with a future due date: nothing is ripe.
+    await upsertCardSchedule(USER, planted!.planted[0].cardId, {
+      easeFactor: 2.5,
+      intervalDays: 6,
+      dueAt: new Date(Date.now() + 6 * 86_400_000),
+      reviewCount: 2,
+      consecutiveCorrect: 2,
+      lapses: 0,
+      lastReviewedAt: new Date(),
+    });
+    const DAY = 86_400_000;
+    await recordSweepDay(USER, "zh-vi", new Date(Date.now() - DAY));
+
+    await loadFarmWorldDetail(USER, "zh-vi");
+    expect(await getSweepStreak(USER, "zh-vi")).toBe(2);
   }, 15_000);
 });

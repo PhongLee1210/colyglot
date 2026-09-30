@@ -219,6 +219,9 @@ export const farmBeds = pgTable(
       .references(() => decks.id, { onDelete: "cascade" }),
     plotCount: integer("plot_count").notNull().default(6),
     position: integer("position").notNull(),
+    // "greenhouse" beds hold demoted words only (GAME_PLAY §5.2) — seeds
+    // are never planted into them.
+    kind: text("kind").notNull().default("garden"),
   },
   (table) => [
     unique("farm_beds_world_position_key").on(table.worldId, table.position),
@@ -282,6 +285,29 @@ export const farmHarvestClaims = pgTable(
   (table) => [index("farm_harvest_claims_world_id_idx").on(table.worldId)]
 );
 
+// One row per day the player finished every ripe crop (or none were ripe):
+// the streak counts sweep days, not bare review days (GAME_PLAY §6.4).
+export const farmSweepDays = pgTable(
+  "farm_sweep_days",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    langKey: text("lang_key").notNull(),
+    dayKey: text("day_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("farm_sweep_days_user_lang_day_key").on(
+      table.userId,
+      table.langKey,
+      table.dayKey
+    ),
+    index("farm_sweep_days_user_lang_idx").on(table.userId, table.langKey),
+  ]
+);
+
 export const userSettings = pgTable(
   "user_settings",
   {
@@ -315,5 +341,6 @@ export type FarmWorld = typeof farmWorlds.$inferSelect;
 export type FarmBed = typeof farmBeds.$inferSelect;
 export type FarmPlot = typeof farmPlots.$inferSelect;
 export type FarmItem = typeof farmItems.$inferSelect;
+export type FarmSweepDay = typeof farmSweepDays.$inferSelect;
 export type FarmHarvestClaim = typeof farmHarvestClaims.$inferSelect;
 export type UserSettings = typeof userSettings.$inferSelect;

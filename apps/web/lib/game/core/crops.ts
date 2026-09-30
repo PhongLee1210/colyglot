@@ -8,15 +8,7 @@ export type CropSchedule = { dueAt: Date; intervalDays: number } | null;
 export function cropStage(schedule: CropSchedule, now: Date): CropStage {
   if (!schedule) return "fresh";
   if (schedule.dueAt.getTime() > now.getTime()) return "growing";
-  const ratio = overdueRatio(
-    {
-      id: "crop",
-      createdAt: now,
-      schedule: { dueAt: schedule.dueAt, intervalDays: schedule.intervalDays },
-    },
-    now
-  );
-  return (ratio ?? 0) >= 1 ? "urgent" : "ready";
+  return (cropOverdueRatio(schedule, now) ?? 0) >= 1 ? "urgent" : "ready";
 }
 
 export function formatWait(dueAt: Date, now: Date): string {
@@ -27,4 +19,30 @@ export function formatWait(dueAt: Date, now: Date): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ${minutes % 60}m`;
   return `${Math.floor(hours / 24)}d`;
+}
+
+// Wilting is a forecast, not a punishment (GAME_PLAY §4): intensity must
+// be PROPORTIONAL to how far past due a word is — 0 at the urgent
+// threshold (ratio 1), fully wilted at ratio 3.
+export const WILT_MAX_OVERDUE_RATIO = 3;
+
+export function cropOverdueRatio(
+  schedule: CropSchedule,
+  now: Date
+): number | null {
+  if (!schedule) return null;
+  return overdueRatio(
+    {
+      id: "crop",
+      createdAt: now,
+      schedule: { dueAt: schedule.dueAt, intervalDays: schedule.intervalDays },
+    },
+    now
+  );
+}
+
+export function wiltIntensity(schedule: CropSchedule, now: Date): number {
+  const ratio = cropOverdueRatio(schedule, now);
+  if (ratio === null) return 0;
+  return Math.min(Math.max((ratio - 1) / (WILT_MAX_OVERDUE_RATIO - 1), 0), 1);
 }

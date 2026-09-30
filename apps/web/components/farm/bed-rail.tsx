@@ -59,6 +59,9 @@ function BedChip({
           return stage === "ready" || stage === "urgent";
         }).length;
   const cost = expandBedCost(bed.plotCount);
+  // The greenhouse only ever receives demoted words (GAME_PLAY §5.2) —
+  // expanding it would be buying recovery slots, which is not a thing.
+  const greenhouse = bed.kind === "greenhouse";
 
   async function expand() {
     if (!armed) {
@@ -86,7 +89,10 @@ function BedChip({
 
   return (
     <div className="glass-dark pointer-events-auto flex w-max shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-white">
-      <span className="font-display text-xs font-extrabold">{bed.name}</span>
+      <span className="font-display text-xs font-extrabold">
+        {greenhouse ? "🌱 " : ""}
+        {bed.name}
+      </span>
       <span
         data-testid="bed-words"
         className="rounded-full bg-black/30 px-1.5 text-[11px] font-bold"
@@ -98,15 +104,17 @@ function BedChip({
           {ready} ready
         </span>
       ) : null}
-      <button
-        type="button"
-        aria-label={`Expand ${bed.name}`}
-        className="rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-bold transition hover:bg-white/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-        disabled={busy}
-        onClick={expand}
-      >
-        {armed ? `Spend ${cost}💰?` : `+3 · ${cost}💰`}
-      </button>
+      {greenhouse ? null : (
+        <button
+          type="button"
+          aria-label={`Expand ${bed.name}`}
+          className="rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-bold transition hover:bg-white/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={busy}
+          onClick={expand}
+        >
+          {armed ? `Spend ${cost}💰?` : `+3 · ${cost}💰`}
+        </button>
+      )}
     </div>
   );
 }

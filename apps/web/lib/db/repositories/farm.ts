@@ -1,10 +1,23 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+} from "drizzle-orm";
 
 import { ReviewGrade } from "@colyglot/srs";
 
 import type { SeedWord } from "@/lib/game/content/types";
 import {
+  applyStreakBonus,
   expandBedCost,
+  GRADUATION_INTERVAL_DAYS,
+  GREENHOUSE_PLOTS,
   harvestGold,
   PLOTS_PER_EXPAND,
   START_PLOTS,
@@ -12,10 +25,13 @@ import {
 } from "@/lib/game/core/economy";
 import type {
   BedView,
+  FarmReviewEvent,
   FarmStats,
   FarmWorldSnapshot,
+  ForestTreeView,
   PlotView,
 } from "@/lib/game/types";
+import { computeStreak, toUtcDayKey } from "@/lib/streak";
 import { levelFromXp } from "@/lib/xp";
 
 import { getDb } from "../index";
@@ -28,6 +44,7 @@ import {
   farmHarvestClaims,
   farmItems,
   farmPlots,
+  farmSweepDays,
   farmWorlds,
   reviewLogs,
   type FarmWorld,
@@ -53,6 +70,13 @@ function langPair(langKey: string): {
   targetLang: string;
 } {
   return { sourceLang: langKey.slice(0, 2), targetLang: langKey.slice(3, 5) };
+}
+
+function langConditionLocal(sourceLang: string, targetLang: string) {
+  return and(
+    eq(decks.sourceLang, sourceLang),
+    eq(decks.targetLang, targetLang)
+  );
 }
 
 export type FarmWorldOverview = { world: FarmWorld; dueCount: number };
@@ -107,18 +131,26 @@ export async function startFarmWorld(
     });
 
     // Legacy decks of the same language pair become beds; oldest cards
-    // occupy the first slots so the farm never starts empty.
-    const legacyDecks = await tx
-      .select()
-      .from(decks)
-      .where(
-        and(
-          eq(decks.userId, userId),
-          eq(decks.sourceLang, input.sourceLang),
-          eq(decks.targetLang, input.targetLang)
+    // occupy the first slots so the farm never starts empty. Decks that
+    // already back a bed (the greenhouse placeholder, another world's
+    // bed) are skipped — a deck can be a bed of at most one world.
+    const bedDeckRows = await tx
+      .select({ deckId: farmBeds.deckId })
+      .from(farmBeds);
+    const bedDeckIds = new Set(bedDeckRows.map((row) => row.deckId));
+    const legacyDecks = (
+      await tx
+        .select()
+        .from(decks)
+        .where(
+          and(
+            eq(decks.userId, userId),
+            eq(decks.sourceLang, input.sourceLang),
+            eq(decks.targetLang, input.targetLang)
+          )
         )
-      )
-      .orderBy(asc(decks.createdAt));
+        .orderBy(asc(decks.createdAt))
+    ).filter((deck) => !bedDeckIds.has(deck.id));
 
     let position = 1;
     for (const deck of legacyDecks) {
@@ -249,9 +281,42 @@ export async function loadFarmWorldDetail(
       name: deckName,
       plotCount: bed.plotCount,
       position: bed.position,
+      kind: bed.kind === "greenhouse" ? "greenhouse" : "garden",
       plots,
     };
   });
+
+  // The Forest is derived, never stored (single source of truth): a word
+  // IS an ancient tree exactly when its interval reached graduation and
+  // it no longer sits in a plot.
+  const forestRows = await getDb()
+    .select({
+      cardId: cards.id,
+      hanzi: cards.hanzi,
+      pinyin: cards.pinyin,
+      translation: cards.translation,
+      intervalDays: cardSchedules.intervalDays,
+    })
+    .from(cards)
+    .innerJoin(decks, eq(cards.deckId, decks.id))
+    .innerJoin(cardSchedules, eq(cardSchedules.cardId, cards.id))
+    .leftJoin(farmPlots, eq(farmPlots.cardId, cards.id))
+    .where(
+      and(
+        eq(decks.userId, userId),
+        langConditionLocal(sourceLang, targetLang),
+        gte(cardSchedules.intervalDays, GRADUATION_INTERVAL_DAYS),
+        isNull(farmPlots.id)
+      )
+    )
+    .orderBy(desc(cardSchedules.intervalDays));
+  const forest: ForestTreeView[] = forestRows.map((row) => ({
+    cardId: row.cardId,
+    hanzi: row.hanzi,
+    pinyin: row.pinyin,
+    translation: row.translation,
+    intervalDays: row.intervalDays,
+  }));
 
   const items = await getDb()
     .select({ itemKey: farmItems.itemKey, qty: farmItems.qty })
@@ -266,6 +331,13 @@ export async function loadFarmWorldDetail(
   );
   const dueCount = await countDueForLang(userId, sourceLang, targetLang);
   const freshCount = await countFreshForLang(userId, sourceLang, targetLang);
+  // Nothing ripe means the sweep is vacuously done for today — the streak
+  // survives days the farm asks nothing of the player. A farm that has
+  // never grown anything earns no streak, though.
+  if (dueCount === 0 && (world.stats.planted > 0 || forest.length > 0)) {
+    await recordSweepDay(userId, langKey, new Date());
+  }
+  const streak = await getSweepStreak(userId, langKey);
 
   const [xpRow] = await getDb()
     .select({ xp: sql<number>`coalesce(sum(${deckProgress.xp}), 0)::int` })
@@ -289,6 +361,8 @@ export async function loadFarmWorldDetail(
       stats: world.stats as FarmStats,
     },
     beds,
+    forest,
+    streak,
     items,
     freshQueue: freshCards.map((card) => ({
       cardId: card.id,
@@ -336,7 +410,7 @@ export async function plantSeeds(
     const occupied = await tx
       .select({ slotIndex: farmPlots.slotIndex })
       .from(farmPlots)
-      .where(eq(farmPlots.bedId, bedId));
+      .where(and(eq(farmPlots.bedId, bedId), isNotNull(farmPlots.cardId)));
     const taken = new Set(occupied.map((row) => row.slotIndex));
     const freeSlots: number[] = [];
     for (let slot = 0; slot < owned.bed.plotCount; slot += 1) {
@@ -369,7 +443,20 @@ export async function plantSeeds(
         .returning();
       const slotIndex = freeSlots[slotCursor];
       slotCursor += 1;
-      await tx.insert(farmPlots).values({ bedId, slotIndex, cardId: card.id });
+      // A graduated word leaves an empty row behind; refill it rather
+      // than tripping the bed+slot unique key on insert.
+      const reclaimed = await tx
+        .update(farmPlots)
+        .set({ cardId: card.id, plantedAt: new Date() })
+        .where(
+          and(eq(farmPlots.bedId, bedId), eq(farmPlots.slotIndex, slotIndex))
+        )
+        .returning({ id: farmPlots.id });
+      if (reclaimed.length === 0) {
+        await tx
+          .insert(farmPlots)
+          .values({ bedId, slotIndex, cardId: card.id });
+      }
       result.planted.push({ hanzi: seed.hanzi, cardId: card.id, slotIndex });
     }
 
@@ -422,9 +509,231 @@ export async function expandFarmBed(
   });
 }
 
+export type { FarmReviewEvent } from "@/lib/game/types";
+
+// Finds (or lazily creates) the world's 3-slot greenhouse bed. The bed
+// needs a deck for the schema's NOT NULL; the placeholder deck never
+// holds cards — demoted words keep living in their original decks.
+async function ensureGreenhouseBed(
+  userId: string,
+  world: FarmWorld
+): Promise<string> {
+  const [existing] = await getDb()
+    .select({ id: farmBeds.id })
+    .from(farmBeds)
+    .where(and(eq(farmBeds.worldId, world.id), eq(farmBeds.kind, "greenhouse")))
+    .limit(1);
+  if (existing) return existing.id;
+
+  const [{ maxPosition }] = await getDb()
+    .select({
+      maxPosition: sql<number>`coalesce(max(${farmBeds.position}), -1)::int`,
+    })
+    .from(farmBeds)
+    .where(eq(farmBeds.worldId, world.id));
+
+  const { sourceLang, targetLang } = langPair(world.langKey);
+  const [deck] = await getDb()
+    .insert(decks)
+    .values({
+      userId,
+      name: "Greenhouse",
+      sourceLang,
+      targetLang,
+    })
+    .returning();
+  const [bed] = await getDb()
+    .insert(farmBeds)
+    .values({
+      worldId: world.id,
+      deckId: deck.id,
+      plotCount: GREENHOUSE_PLOTS,
+      position: maxPosition + 1,
+      kind: "greenhouse",
+    })
+    .returning();
+  return bed.id;
+}
+
+// Post-review farm lifecycle (GAME_PLAY §5): a word that reaches 21 days
+// graduates out of its plot into the Forest, and a lapsed forest word
+// comes back down to a plot (or the greenhouse when the farm is full).
+// Both stay reviewable — reviews are card-level, plots are only where
+// words are visually farmed.
+// Puts a card into a bed slot: graduation leaves empty plot ROWS behind
+// (only cardId is nulled), so a refill must update the existing row —
+// inserting would trip the bed+slot unique key.
+async function reclaimPlot(
+  bedId: string,
+  slotIndex: number,
+  cardId: string
+): Promise<boolean> {
+  const updated = await getDb()
+    .update(farmPlots)
+    .set({ cardId, plantedAt: new Date() })
+    .where(and(eq(farmPlots.bedId, bedId), eq(farmPlots.slotIndex, slotIndex)))
+    .returning({ id: farmPlots.id });
+  if (updated.length > 0) return true;
+  const inserted = await getDb()
+    .insert(farmPlots)
+    .values({ bedId, slotIndex, cardId })
+    .onConflictDoNothing()
+    .returning({ id: farmPlots.id });
+  return inserted.length > 0;
+}
+
+// Slot indexes that actually hold a card — an emptied row still occupies
+// its slot index but is plantable again.
+async function occupiedSlots(bedId: string): Promise<Set<number>> {
+  const rows = await getDb()
+    .select({ slotIndex: farmPlots.slotIndex })
+    .from(farmPlots)
+    .where(and(eq(farmPlots.bedId, bedId), isNotNull(farmPlots.cardId)));
+  return new Set(rows.map((row) => row.slotIndex));
+}
+
+export async function applyFarmReviewHooks(
+  userId: string,
+  cardId: string,
+  outcome: {
+    intervalDaysBefore: number;
+    newIntervalDays: number;
+    grade: ReviewGrade;
+  }
+): Promise<FarmReviewEvent | null> {
+  const [cardRow] = await getDb()
+    .select({
+      card: cards,
+      world: farmWorlds,
+    })
+    .from(cards)
+    .innerJoin(decks, eq(cards.deckId, decks.id))
+    .innerJoin(farmBeds, eq(farmBeds.deckId, decks.id))
+    .innerJoin(farmWorlds, eq(farmBeds.worldId, farmWorlds.id))
+    .where(and(eq(cards.id, cardId), eq(decks.userId, userId)))
+    .limit(1);
+  // The card's deck backs a bed of a DIFFERENT user's world, or the card
+  // is not on any farm surface — either way there is nothing to move.
+  if (!cardRow || cardRow.world.userId !== userId) {
+    return null;
+  }
+
+  const [plot] = await getDb()
+    .select({ id: farmPlots.id })
+    .from(farmPlots)
+    .where(eq(farmPlots.cardId, cardId))
+    .limit(1);
+
+  const base = {
+    hanzi: cardRow.card.hanzi,
+    pinyin: cardRow.card.pinyin,
+    translation: cardRow.card.translation,
+    replanted: false,
+    greenhouse: false,
+  };
+
+  if (outcome.newIntervalDays >= GRADUATION_INTERVAL_DAYS && plot) {
+    await getDb()
+      .update(farmPlots)
+      .set({ cardId: null, plantedAt: new Date() })
+      .where(eq(farmPlots.id, plot.id));
+    return {
+      type: "graduation",
+      ...base,
+      intervalDays: outcome.newIntervalDays,
+    };
+  }
+
+  if (
+    outcome.grade === ReviewGrade.FORGOT &&
+    outcome.intervalDaysBefore >= GRADUATION_INTERVAL_DAYS &&
+    !plot
+  ) {
+    const bedRows = await getDb()
+      .select({ bed: farmBeds })
+      .from(farmBeds)
+      .where(eq(farmBeds.worldId, cardRow.world.id))
+      .orderBy(asc(farmBeds.position));
+    for (const { bed } of bedRows) {
+      if (bed.kind === "greenhouse") continue;
+      const taken = await occupiedSlots(bed.id);
+      for (let slot = 0; slot < bed.plotCount; slot += 1) {
+        if (taken.has(slot)) continue;
+        if (await reclaimPlot(bed.id, slot, cardId)) {
+          return {
+            type: "demotion",
+            ...base,
+            intervalDays: outcome.intervalDaysBefore,
+            replanted: true,
+            greenhouse: false,
+          };
+        }
+      }
+    }
+    // Farm is full: the greenhouse catches the demoted word so it is
+    // never locked out of review (GAME_PLAY §5.2).
+    const greenhouseBedId = await ensureGreenhouseBed(userId, cardRow.world);
+    const taken = await occupiedSlots(greenhouseBedId);
+    for (let slot = 0; slot < GREENHOUSE_PLOTS; slot += 1) {
+      if (taken.has(slot)) continue;
+      if (await reclaimPlot(greenhouseBedId, slot, cardId)) {
+        return {
+          type: "demotion",
+          ...base,
+          intervalDays: outcome.intervalDaysBefore,
+          replanted: true,
+          greenhouse: true,
+        };
+      }
+    }
+    // Even the greenhouse is full: the word stays schedule-active and
+    // lands in a plot the next time one frees up (a graduation).
+    return {
+      type: "demotion",
+      ...base,
+      intervalDays: outcome.intervalDaysBefore,
+      replanted: false,
+      greenhouse: true,
+    };
+  }
+
+  return null;
+}
+
+export async function recordSweepDay(
+  userId: string,
+  langKey: string,
+  now: Date
+): Promise<void> {
+  await getDb()
+    .insert(farmSweepDays)
+    .values({ userId, langKey, dayKey: toUtcDayKey(now) })
+    .onConflictDoNothing();
+}
+
+export async function getSweepStreak(
+  userId: string,
+  langKey: string,
+  now: Date = new Date()
+): Promise<number> {
+  const rows = await getDb()
+    .select({ dayKey: farmSweepDays.dayKey })
+    .from(farmSweepDays)
+    .where(
+      and(eq(farmSweepDays.userId, userId), eq(farmSweepDays.langKey, langKey))
+    );
+  return computeStreak(
+    rows.map((row) => row.dayKey),
+    now
+  );
+}
+
 export type ClaimHarvestResult = {
   alreadyClaimed: boolean;
+  baseGold: number;
   goldAwarded: number;
+  streakBonus: number;
+  streak: number;
   cardsHarvested: number;
   gold: number;
 };
@@ -469,7 +778,10 @@ export async function claimSessionHarvest(
   if (!claim) {
     return {
       alreadyClaimed: true,
+      baseGold: 0,
       goldAwarded: 0,
+      streakBonus: 0,
+      streak: await getSweepStreak(userId, langKey),
       cardsHarvested: 0,
       gold: world.gold,
     };
@@ -485,12 +797,24 @@ export async function claimSessionHarvest(
       firstLogPerCard.set(log.cardId, log);
     }
   }
-  const goldAwarded = [...firstLogPerCard.values()].reduce(
+  const baseGold = [...firstLogPerCard.values()].reduce(
     (total, log) =>
       total + harvestGold(log.intervalDaysBefore, log.grade as ReviewGrade),
     0
   );
   const cardsHarvested = firstLogPerCard.size;
+
+  // The streak pays at the end of a sweep that cleared every ripe crop
+  // (GAME_PLAY §6.4): the day only counts once nothing is left due.
+  if (cardsHarvested > 0) {
+    const remainingDue = await countDueForLang(userId, sourceLang, targetLang);
+    if (remainingDue === 0) {
+      await recordSweepDay(userId, langKey, new Date());
+    }
+  }
+  const streak = await getSweepStreak(userId, langKey);
+  const streakBonus = applyStreakBonus(baseGold, streak);
+  const goldAwarded = baseGold + streakBonus;
 
   return getDb().transaction(async (tx) => {
     const [updated] = await tx
@@ -508,7 +832,10 @@ export async function claimSessionHarvest(
       .where(eq(farmHarvestClaims.sessionId, sessionId));
     return {
       alreadyClaimed: false,
+      baseGold,
       goldAwarded,
+      streakBonus,
+      streak,
       cardsHarvested,
       gold: updated.gold,
     };

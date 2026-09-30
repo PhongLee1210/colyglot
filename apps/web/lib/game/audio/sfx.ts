@@ -75,3 +75,10 @@ export function playAnswerFeedback(correct: boolean): void {
   playTone(WRONG_HZ, WRONG_HZ, WRONG_MS);
   vibrate(WRONG_HAPTIC_PATTERN);
 }
+
+// The 0–80ms channel of a tap (GAME_PLAY §8.1): the button sinks and the
+// device nudges the instant the finger lands, before the graded feedback
+// beat at 120ms — a muted device still gets the haptic nudge.
+export function playPressHaptic(): void {
+  vibrate(CORRECT_HAPTIC_MS);
+}

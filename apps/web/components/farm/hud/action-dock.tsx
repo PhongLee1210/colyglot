@@ -1,6 +1,6 @@
 "use client";
 
-import type { FarmWorldSnapshot } from "@/lib/game/types";
+import { DUE_SWEEP_LIMIT, type FarmWorldSnapshot } from "@/lib/game/types";
 
 import { DockButton } from "./controls";
 
@@ -17,6 +17,10 @@ export function ActionDock({
   onOpenNursery: () => void;
   onOpenHarvest: () => void;
 }) {
+  const dueBadge =
+    snapshot.dueCount > DUE_SWEEP_LIMIT
+      ? `${DUE_SWEEP_LIMIT}+`
+      : snapshot.dueCount;
   return (
     <nav
       aria-label="Farm actions"
@@ -52,7 +56,7 @@ export function ActionDock({
             ? `Harvest, ${snapshot.dueCount} ready`
             : undefined
         }
-        badge={snapshot.dueCount}
+        badge={dueBadge}
         tone={snapshot.dueCount > 0 ? "gold" : "default"}
         disabled={disabled}
         onClick={onOpenHarvest}

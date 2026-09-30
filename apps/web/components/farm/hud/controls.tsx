@@ -35,7 +35,7 @@ export function CountBadge({
   count,
   tone = "alert",
 }: {
-  count: number;
+  count: number | string;
   tone?: "alert" | "gold";
 }) {
   return (
@@ -68,7 +68,7 @@ export function DockButton({
   label: string;
   ariaLabel?: string;
   testId?: string;
-  badge?: number;
+  badge?: number | string;
   badgeTone?: "alert" | "gold";
   tone?: "default" | "gold";
   disabled?: boolean;
@@ -92,7 +92,7 @@ export function DockButton({
         {icon}
       </span>
       <span className="whitespace-nowrap">{label}</span>
-      {badge && badge > 0 ? (
+      {badge !== undefined && badge !== 0 && badge !== "" ? (
         <CountBadge count={badge} tone={badgeTone} />
       ) : null}
     </button>

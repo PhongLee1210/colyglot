@@ -35,6 +35,7 @@ import { CropLabelProjector } from "./crop-label-projector";
 import { Crops3D } from "./crops-3d";
 import { Decorations3D } from "./decorations-3d";
 import { FarmBeds3D } from "./farm-beds-3d";
+import { Forest3D } from "./forest-3d";
 import { PLOT_TILE_TOP_Y, plotInstances, Plots3D } from "./plots-3d";
 import { Terrain3D } from "./terrain";
 import { Trees3D } from "./trees-3d";
@@ -263,6 +264,7 @@ export function Farm3DWorld({
           materials={materials}
           accent={theme.accent}
           worldId={snapshot.world.id}
+          now={now}
         />
         <FxProjector beds={snapshot.beds} farm={farm} />
         <CropLabelProjector beds={snapshot.beds} farm={farm} />
@@ -278,6 +280,7 @@ export function Farm3DWorld({
           farm={farm}
           materials={materials}
         />
+        <Forest3D forest={snapshot.forest} layout={layout} />
         <Trees3D layout={layout} />
         <Decorations3D layout={layout} materials={materials} />
         <Buildings3D farm={farm} materials={materials} />

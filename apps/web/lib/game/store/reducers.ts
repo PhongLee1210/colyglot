@@ -51,10 +51,16 @@ export function applyGoldDelta(
 
 export function applyClaim(
   snapshot: FarmWorldSnapshot,
-  claim: { goldAwarded: number; cardsHarvested: number; gold: number }
+  claim: {
+    goldAwarded: number;
+    cardsHarvested: number;
+    gold: number;
+    streak?: number;
+  }
 ): FarmWorldSnapshot {
   return {
     ...snapshot,
+    streak: claim.streak ?? snapshot.streak,
     world: {
       ...snapshot.world,
       gold: claim.gold,

@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import { ReviewGrade } from "@colyglot/srs";
 
+import { radicalOf, sharesRadical, wordRadicals } from "@/lib/game/core/hanzi";
+
 import {
   buildChallenge,
   challengeDirection,
@@ -144,6 +146,46 @@ describe("buildChallenge", () => {
     expect(challenge.choices).toContain("不");
   });
 
+  test("a mature word prefers radical-family distractors over unrelated ones", () => {
+    // 吃/喝/吗 share the 口 radical with each other but not the sound; a
+    // radical-blind rule would rank 水 and 饭 the same as 喝 and 吗.
+    const subject = word("吃", "chī", "ăn", "food");
+    const near = [
+      word("喝", "hē", "uống", "food"),
+      word("吗", "ma", "không?", "greetings"),
+    ];
+    const far = [
+      word("水", "shuǐ", "nước", "food"),
+      word("饭", "fàn", "cơm", "food"),
+    ];
+    const challenge = buildChallenge(subject, [subject, ...near, ...far], 20);
+    expect(challenge.choices).toContain("喝");
+    expect(challenge.choices).toContain("吗");
+  });
+
+  test("an ancient word is squeezed toward radical-and-sound lookalikes", () => {
+    // The ancient tier (GAME_PLAY §3.1) wants near-identical options: the
+    // ranked rules must spend their picks on 对/不 before anything else.
+    const challenge = buildChallenge(SUBJECT, POOL, 60, sequence([0.1, 0.7]));
+    expect(challenge.choices).toContain("对");
+    expect(challenge.choices).toContain("不");
+    expect(challenge.tier).toBe("ancient");
+    expect(challenge.direction).toBe("produce");
+  });
+
+  test("an ancient pool with no radical matches degrades to shared characters", () => {
+    const subject = word("茶", "chá", "trà", "food");
+    const pool = [
+      subject,
+      word("面条", "miàn tiáo", "mì", "food"),
+      word("再见", "zài jiàn", "tạm biệt", "greetings"),
+      word("咖啡", "kā fēi", "cà phê", "food"),
+    ];
+    const challenge = buildChallenge(subject, pool, 60);
+    expect(challenge.choices).toHaveLength(CHOICE_COUNT);
+    expect(challenge.choices).toContain(challenge.answer);
+  });
+
   test("a pool too thin for the rule still fills the grid", () => {
     const challenge = buildChallenge(SUBJECT, GREETINGS, 0);
     expect(challenge.choices).toHaveLength(CHOICE_COUNT);
@@ -231,5 +273,23 @@ describe("shuffle", () => {
     const items = [1, 2, 3];
     shuffle(items, sequence([0.9]));
     expect(items).toEqual([1, 2, 3]);
+  });
+});
+
+describe("radicals", () => {
+  test("maps the planted vocabulary onto its radical families", () => {
+    expect(radicalOf("吃")).toBe("口");
+    expect(radicalOf("果")).toBe("木");
+    expect(radicalOf("？")).toBeNull();
+  });
+
+  test("a word carries the radicals of every character", () => {
+    expect(wordRadicals("米饭")).toEqual(new Set(["米", "饣"]));
+    expect(wordRadicals("咖啡")).toEqual(new Set(["口"]));
+  });
+
+  test("words share a radical only through a common family", () => {
+    expect(sharesRadical("咖啡", "吃")).toBe(true);
+    expect(sharesRadical("米饭", "苹果")).toBe(false);
   });
 });

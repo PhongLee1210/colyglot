@@ -25,6 +25,7 @@ function fixture(): FarmWorldSnapshot {
         name: "Garden",
         plotCount: 6,
         position: 0,
+        kind: "garden",
         plots: [
           {
             slotIndex: 0,
@@ -50,6 +51,8 @@ function fixture(): FarmWorldSnapshot {
       },
     ],
     items: [],
+    forest: [],
+    streak: 0,
     freshQueue: [],
     dueCount: 0,
     freshCount: 1,

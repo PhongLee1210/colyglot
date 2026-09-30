@@ -5,6 +5,10 @@ import { review, ReviewGrade } from "@colyglot/srs";
 import { requireUserId } from "@/lib/auth/session";
 import { addDeckXpForCard } from "@/lib/db/repositories/deck-progress";
 import {
+  applyFarmReviewHooks,
+  type FarmReviewEvent,
+} from "@/lib/db/repositories/farm";
+import {
   appendReviewLog,
   closeStudySession,
   getCardSchedule,
@@ -23,6 +27,9 @@ export type GradeResult = {
   dueAt: string;
   requeued: boolean;
   goldPreview: HarvestPreview;
+  // Graduation into the Forest / demotion back to a plot, when this
+  // review crossed a lifecycle threshold (GAME_PLAY §5).
+  farmEvent: FarmReviewEvent | null;
 };
 
 export async function startStudySessionAction(): Promise<ActionResult<string>> {
@@ -81,6 +88,17 @@ export async function gradeCardAction(
       return { ok: false, error: "Session not found" };
     }
     await addDeckXpForCard(userId, cardId, XP_BY_GRADE[grade]);
+    let farmEvent: FarmReviewEvent | null = null;
+    try {
+      farmEvent = await applyFarmReviewHooks(userId, cardId, {
+        intervalDaysBefore,
+        newIntervalDays: next.intervalDays,
+        grade,
+      });
+    } catch {
+      // The schedule write already committed; a lifecycle miss must not
+      // fail the grade — the word just moves on the next threshold.
+    }
     return {
       ok: true,
       data: {
@@ -88,6 +106,7 @@ export async function gradeCardAction(
         dueAt: next.dueAt.toISOString(),
         requeued: grade < ReviewGrade.GOOD,
         goldPreview: harvestPreview(intervalDaysBefore, grade),
+        farmEvent,
       },
     };
   } catch (error) {

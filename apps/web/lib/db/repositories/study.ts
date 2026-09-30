@@ -2,6 +2,7 @@ import { and, asc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 
 import { isValidReviewGrade, ReviewGrade } from "@colyglot/srs";
 
+import { DUE_SWEEP_LIMIT } from "@/lib/game/types";
 import { computeStreak } from "@/lib/streak";
 import { getDb } from "../index";
 import {
@@ -16,7 +17,7 @@ import {
   type StudySession,
 } from "../schema";
 
-export const DEFAULT_DUE_QUEUE_LIMIT = 50;
+export const DEFAULT_DUE_QUEUE_LIMIT = DUE_SWEEP_LIMIT;
 
 export type DueQueueItem = {
   card: Card;

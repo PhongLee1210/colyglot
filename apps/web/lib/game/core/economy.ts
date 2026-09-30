@@ -6,6 +6,37 @@ export const PLOTS_PER_EXPAND = 3;
 export const EXPAND_BASE_COST = 20;
 export const BASE_GOLD_CAP_DAYS = 60;
 
+// A word this durable has earned its plot back: it graduates into the
+// Forest as an ancient tree and still pays MORE gold per review
+// (GAME_PLAY §5.1) — the cap below keeps that honest, not infinite.
+export const GRADUATION_INTERVAL_DAYS = 21;
+
+// The greenhouse catches demoted words when no plot is free, so a
+// forgotten word is never locked out of review (GAME_PLAY §5.2).
+export const GREENHOUSE_PLOTS = 3;
+
+// Streak milestones pay a sweep bonus (GAME_PLAY §6.4): breaking a
+// streak takes nothing away, it just resets the multiplier to 0.
+export const STREAK_BONUS_TIERS: readonly { days: number; rate: number }[] = [
+  { days: 30, rate: 0.3 },
+  { days: 7, rate: 0.2 },
+  { days: 3, rate: 0.1 },
+];
+
+export function streakBonusRate(streakDays: number): number {
+  for (const tier of STREAK_BONUS_TIERS) {
+    if (streakDays >= tier.days) return tier.rate;
+  }
+  return 0;
+}
+
+export function applyStreakBonus(
+  goldAwarded: number,
+  streakDays: number
+): number {
+  return Math.round(goldAwarded * streakBonusRate(streakDays));
+}
+
 export function expansionsSoFar(plotCount: number): number {
   return Math.floor((plotCount - START_PLOTS) / PLOTS_PER_EXPAND);
 }
