@@ -23,12 +23,14 @@ import {
   type ChallengeWord,
 } from "@/lib/game/core/challenge";
 import { useFarmStore } from "@/lib/game/store/farm-store";
+import { useFxStore } from "@/lib/game/store/fx-store";
 import type { FreshCardView } from "@/lib/game/types";
 
 import { BackToFarmButton, FarmOverlay, FarmPanel } from "./farm-overlay";
 import { AnswerReveal } from "./harvest/answer-reveal";
 import { ChallengePrompt } from "./harvest/challenge-prompt";
 import { ChoiceGrid } from "./harvest/choice-grid";
+import { CorrectRunPad } from "./harvest/correct-run-pad";
 import { SpeakButton } from "./speak-button";
 
 type Phase = "intro" | "quiz";
@@ -184,6 +186,8 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
       if (!card || !challenge || picked !== null || busy) return;
       const elapsedMs = performance.now() - askedAtRef.current;
       const correct = choice === challenge.answer;
+      // §8.3: nursery answers feed the same correct-run music layer.
+      useFxStore.getState().noteResult(correct);
       setPicked(choice);
       setBusy(true);
       playPressHaptic();
@@ -265,6 +269,7 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
 
   return (
     <FarmPanel>
+      <CorrectRunPad />
       <header className="flex items-center justify-between border-b border-line p-4">
         <h1 className="text-lg font-extrabold">🌱 Nursery</h1>
         <span className="text-sm text-fg-muted">

@@ -46,6 +46,10 @@ export const COIN_FLIGHT_DELAY_MS = 180;
 export const PROMPT_PULSE_DELAY_MS = 400;
 export const TALLY_BUMP_DELAY_MS = 600;
 
+// Music layering (GAME_PLAY §8.3): a run of this many correct answers
+// swells a soft pad under the farm track; any miss releases it.
+export const CORRECT_RUN_FOR_PAD = 5;
+
 // Early taps in the last instant of a hold still count for the next
 // question (GAME_PLAY §8.4 rule 3): a tap buffered within this window of
 // the next grid appearing replays onto the choice at the same position.

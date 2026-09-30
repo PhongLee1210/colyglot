@@ -31,9 +31,14 @@ type FxState = {
   coinOrigins: CoinOrigin[];
   coinFlights: CoinFlight[];
   reaction: { clip: AnimalClipName; id: number } | null;
+  // Consecutive correct answers (GAME_PLAY §8.3): at 5 the music gains
+  // its pad layer; any miss — once an undo window has closed — resets it.
+  correctRun: number;
   setMotionScale: (scale: number) => void;
   celebrateHarvest: (entries: HarvestFxInput[], goldAwarded: number) => void;
   react: (clip: AnimalClipName) => void;
+  noteResult: (correct: boolean) => void;
+  resetCorrectRun: () => void;
   takeCoinOrigins: () => CoinOrigin[];
   addCoinFlights: (flights: CoinFlight[]) => void;
   settleCoinFlight: (id: number) => void;
@@ -53,6 +58,7 @@ export const useFxStore = create<FxState>((set, get) => ({
   coinOrigins: [],
   coinFlights: [],
   reaction: null,
+  correctRun: 0,
   setMotionScale: (scale) => set({ motionScale: scale }),
   celebrateHarvest: (entries, goldAwarded) => {
     const { motionScale } = get();
@@ -73,6 +79,11 @@ export const useFxStore = create<FxState>((set, get) => ({
     if (get().motionScale <= 0) return;
     set({ reaction: { clip, id: ++reactionSeq } });
   },
+  noteResult: (correct) =>
+    set((state) => ({
+      correctRun: correct ? state.correctRun + 1 : 0,
+    })),
+  resetCorrectRun: () => set({ correctRun: 0 }),
   takeCoinOrigins: () => {
     const origins = get().coinOrigins;
     if (origins.length > 0) set({ coinOrigins: [] });

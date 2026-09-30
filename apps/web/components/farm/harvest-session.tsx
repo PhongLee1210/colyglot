@@ -38,6 +38,7 @@ import { spawnAnswerCoins } from "./harvest/answer-beats";
 import { AnswerReveal } from "./harvest/answer-reveal";
 import { ChallengePrompt } from "./harvest/challenge-prompt";
 import { ChoiceGrid } from "./harvest/choice-grid";
+import { CorrectRunPad } from "./harvest/correct-run-pad";
 import { LifecycleCeremony } from "./harvest/lifecycle-ceremony";
 import { SpeakButton } from "./speak-button";
 
@@ -340,6 +341,8 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
       const outcome = { correct, elapsedMs, hesitated };
 
       if (correct) {
+        // §8.3: the run feeds the music's pad layer.
+        useFxStore.getState().noteResult(true);
         // The beats need the server's gold number, so the grade goes
         // first; the hold still covers the full 900ms pacing either way.
         // Retries show a learning step instead of gold, so they skip the
@@ -364,6 +367,8 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
       // cannot be reversed afterwards.
       const undone = await waitForWrongAnswer();
       window.clearTimeout(continueTimer);
+      // A miss only breaks the run once it truly stands — undo erases it.
+      if (!undone) useFxStore.getState().noteResult(false);
       if (undone) {
         setUndoSpent(true);
         setPicked(null);
@@ -455,6 +460,8 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
               try {
                 const result = await openHarvestAction(snapshot.world.langKey);
                 if (result.ok) {
+                  // Fresh sweep, fresh run (§8.3).
+                  useFxStore.getState().resetCorrectRun();
                   setSessionId(result.data.sessionId);
                   setTotal(result.data.queue.length);
                   startCard(result.data.queue);
@@ -499,6 +506,7 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
 
   return (
     <FarmPanel>
+      <CorrectRunPad />
       {ceremony ? (
         <LifecycleCeremony event={ceremony} onDone={closeCeremony} />
       ) : null}
