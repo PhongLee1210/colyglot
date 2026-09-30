@@ -8,6 +8,7 @@ import {
   baseHarvestGold,
   expandBedCost,
   GRADUATION_INTERVAL_DAYS,
+  graduationThreshold,
   harvestGold,
   harvestPreview,
   streakBonusRate,
@@ -60,6 +61,11 @@ describe("economy", () => {
 
   test("graduation threshold sits at the 21-day memory mark", () => {
     expect(GRADUATION_INTERVAL_DAYS).toBe(21);
+  });
+
+  test("the first tree graduates at 15 days exactly once (GAME_PLAY §10.2)", () => {
+    expect(graduationThreshold(false)).toBe(15);
+    expect(graduationThreshold(true)).toBe(21);
   });
 
   test("streak bonuses step at 3 / 7 / 30 days (GAME_PLAY §6.4)", () => {

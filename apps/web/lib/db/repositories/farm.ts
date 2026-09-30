@@ -3,7 +3,6 @@ import {
   asc,
   desc,
   eq,
-  gte,
   inArray,
   isNotNull,
   isNull,
@@ -16,7 +15,7 @@ import type { SeedWord } from "@/lib/game/content/types";
 import {
   applyStreakBonus,
   expandBedCost,
-  GRADUATION_INTERVAL_DAYS,
+  graduationThreshold,
   GREENHOUSE_PLOTS,
   harvestGold,
   PLOTS_PER_EXPAND,
@@ -286,9 +285,10 @@ export async function loadFarmWorldDetail(
     };
   });
 
-  // The Forest is derived, never stored (single source of truth): a word
-  // IS an ancient tree exactly when its interval reached graduation and
-  // it no longer sits in a plot.
+  // The Forest is one rule, applied once (GAME_PLAY §5.1): a word IS an
+  // ancient tree when the graduation hook marked it (cards.graduatedAt)
+  // and it no longer sits in a plot. The marker — not a derived interval
+  // filter — is what lets the first tree graduate at 15 days (§10.2).
   const forestRows = await getDb()
     .select({
       cardId: cards.id,
@@ -305,7 +305,7 @@ export async function loadFarmWorldDetail(
       and(
         eq(decks.userId, userId),
         langConditionLocal(sourceLang, targetLang),
-        gte(cardSchedules.intervalDays, GRADUATION_INTERVAL_DAYS),
+        isNotNull(cards.graduatedAt),
         isNull(farmPlots.id)
       )
     )
@@ -632,11 +632,39 @@ export async function applyFarmReviewHooks(
     greenhouse: false,
   };
 
-  if (outcome.newIntervalDays >= GRADUATION_INTERVAL_DAYS && plot) {
-    await getDb()
-      .update(farmPlots)
-      .set({ cardId: null, plantedAt: new Date() })
-      .where(eq(farmPlots.id, plot.id));
+  // Graduation (GAME_PLAY §5.1 + §10.2): the FIRST tree of a virgin world
+  // crosses at 15 days, every later one at 21. The marker row makes the
+  // Forest membership explicit — a 15-day tree must be visible too.
+  const stats = cardRow.world.stats as FarmStats;
+  if (
+    cardRow.card.graduatedAt === null &&
+    plot &&
+    outcome.newIntervalDays >=
+      graduationThreshold(stats.firstGraduation === true)
+  ) {
+    const graduatedAt = new Date();
+    await getDb().transaction(async (tx) => {
+      await tx
+        .update(farmPlots)
+        .set({ cardId: null, plantedAt: graduatedAt })
+        .where(eq(farmPlots.id, plot.id));
+      await tx.update(cards).set({ graduatedAt }).where(eq(cards.id, cardId));
+      // Spending the first-graduation exception is part of the same
+      // crossing — one write, no window where a second tree also slips
+      // through at 15.
+      await tx
+        .update(farmWorlds)
+        .set({
+          stats: sql`jsonb_set(${farmWorlds.stats}, '{firstGraduation}', 'true'::jsonb)`,
+          updatedAt: graduatedAt,
+        })
+        .where(
+          and(
+            eq(farmWorlds.id, cardRow.world.id),
+            sql`${farmWorlds.stats} ->> 'firstGraduation' is distinct from 'true'`
+          )
+        );
+    });
     return {
       type: "graduation",
       ...base,
@@ -644,9 +672,11 @@ export async function applyFarmReviewHooks(
     };
   }
 
+  // Demotion (GAME_PLAY §5.2): a FORGOT on a graduated tree — at ANY
+  // interval, including the 15-day first tree — knocks it back down.
   if (
     outcome.grade === ReviewGrade.FORGOT &&
-    outcome.intervalDaysBefore >= GRADUATION_INTERVAL_DAYS &&
+    cardRow.card.graduatedAt !== null &&
     !plot
   ) {
     const bedRows = await getDb()
@@ -660,6 +690,10 @@ export async function applyFarmReviewHooks(
       for (let slot = 0; slot < bed.plotCount; slot += 1) {
         if (taken.has(slot)) continue;
         if (await reclaimPlot(bed.id, slot, cardId)) {
+          await getDb()
+            .update(cards)
+            .set({ graduatedAt: null })
+            .where(eq(cards.id, cardId));
           return {
             type: "demotion",
             ...base,
@@ -677,6 +711,10 @@ export async function applyFarmReviewHooks(
     for (let slot = 0; slot < GREENHOUSE_PLOTS; slot += 1) {
       if (taken.has(slot)) continue;
       if (await reclaimPlot(greenhouseBedId, slot, cardId)) {
+        await getDb()
+          .update(cards)
+          .set({ graduatedAt: null })
+          .where(eq(cards.id, cardId));
         return {
           type: "demotion",
           ...base,
@@ -686,8 +724,9 @@ export async function applyFarmReviewHooks(
         };
       }
     }
-    // Even the greenhouse is full: the word stays schedule-active and
-    // lands in a plot the next time one frees up (a graduation).
+    // Even the greenhouse is full: the tree keeps its Forest spot and
+    // stays schedule-active; it lands in a plot the next time one frees
+    // up (a graduation).
     return {
       type: "demotion",
       ...base,

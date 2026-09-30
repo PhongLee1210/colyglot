@@ -11,6 +11,17 @@ export const BASE_GOLD_CAP_DAYS = 60;
 // (GAME_PLAY §5.1) — the cap below keeps that honest, not infinite.
 export const GRADUATION_INTERVAL_DAYS = 21;
 
+// The bore-gap fix (GAME_PLAY §10.2): a virgin world graduates its FIRST
+// tree at 15 days — once — so the ceremony is seen around day 16 instead
+// of 22. Every later tree needs the full 21.
+export const FIRST_GRADUATION_INTERVAL_DAYS = 15;
+
+export function graduationThreshold(firstGraduationUsed: boolean): number {
+  return firstGraduationUsed
+    ? GRADUATION_INTERVAL_DAYS
+    : FIRST_GRADUATION_INTERVAL_DAYS;
+}
+
 // The greenhouse catches demoted words when no plot is free, so a
 // forgotten word is never locked out of review (GAME_PLAY §5.2).
 export const GREENHOUSE_PLOTS = 3;

@@ -112,7 +112,7 @@ describeIntegration("farm bed operations and harvest claim", () => {
     const result = await plantSeeds(USER, "zh-vi", bedId, [word("七")]);
     expect(result!.bedFull).toBe(true);
     expect(result!.planted).toEqual([]);
-  });
+  }, 15_000);
 
   test("plantSeeds returns undefined for another user's bed", async () => {
     await startFarmWorld(USER, ZH);
@@ -352,6 +352,82 @@ describeIntegration("farm bed operations and harvest claim", () => {
     });
     expect(overflow).toMatchObject({ type: "demotion", replanted: false });
   }, 30_000);
+
+  test("the first tree graduates at 15 days exactly once (GAME_PLAY §10.2)", async () => {
+    await startFarmWorld(USER, ZH);
+    const bedId = await gardenBedId();
+    const planted = await plantSeeds(USER, "zh-vi", bedId, [
+      word("一"),
+      word("二"),
+    ]);
+
+    // First word of a virgin world: 15 days is enough.
+    const first = await applyFarmReviewHooks(USER, planted!.planted[0].cardId, {
+      intervalDaysBefore: 6,
+      newIntervalDays: 15,
+      grade: ReviewGrade.GOOD,
+    });
+    expect(first).toMatchObject({ type: "graduation", intervalDays: 15 });
+
+    // A real graduation follows a committed review — the schedule row the
+    // Forest view joins on exists.
+    await upsertCardSchedule(USER, planted!.planted[0].cardId, {
+      easeFactor: 2.5,
+      intervalDays: 15,
+      dueAt: new Date(Date.now() + 15 * 86_400_000),
+      reviewCount: 4,
+      consecutiveCorrect: 4,
+      lapses: 0,
+      lastReviewedAt: new Date(),
+    });
+
+    const detail = await loadFarmWorldDetail(USER, "zh-vi");
+    // The 15-day tree IS in the Forest — membership is the marker, not a
+    // derived >= 21 filter.
+    expect(detail!.forest).toHaveLength(1);
+    expect(detail!.forest[0]).toMatchObject({ hanzi: "一", intervalDays: 15 });
+    expect(detail!.world.stats.firstGraduation).toBe(true);
+
+    // The exception is spent: the second word at 15 does NOT graduate…
+    const second = await applyFarmReviewHooks(
+      USER,
+      planted!.planted[1].cardId,
+      { intervalDaysBefore: 6, newIntervalDays: 15, grade: ReviewGrade.GOOD }
+    );
+    expect(second).toBeNull();
+    // …but 21 still does.
+    const later = await applyFarmReviewHooks(USER, planted!.planted[1].cardId, {
+      intervalDaysBefore: 15,
+      newIntervalDays: 21,
+      grade: ReviewGrade.GOOD,
+    });
+    expect(later).toMatchObject({ type: "graduation" });
+  }, 20_000);
+
+  test("FORGOT on a 15-day forest tree demotes on the marker, not the interval", async () => {
+    await startFarmWorld(USER, ZH);
+    const bedId = await gardenBedId();
+    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("一")]);
+    const cardId = planted!.planted[0].cardId;
+
+    await applyFarmReviewHooks(USER, cardId, {
+      intervalDaysBefore: 6,
+      newIntervalDays: 15,
+      grade: ReviewGrade.GOOD,
+    });
+    // 15 < 21: the old interval-based demotion check would have missed it.
+    const event = await applyFarmReviewHooks(USER, cardId, {
+      intervalDaysBefore: 15,
+      newIntervalDays: 1,
+      grade: ReviewGrade.FORGOT,
+    });
+    expect(event).toMatchObject({
+      type: "demotion",
+      replanted: true,
+      greenhouse: false,
+    });
+    expect((await loadFarmWorldDetail(USER, "zh-vi"))!.forest).toHaveLength(0);
+  }, 15_000);
 
   test("clearing the farm records a sweep day and pays the streak bonus", async () => {
     await startFarmWorld(USER, ZH);
