@@ -18,7 +18,6 @@ import {
   buildChallenge,
   CORRECT_HOLD_MS,
   FEEDBACK_DELAY_MS,
-  gradeFromResponse,
   WRONG_HOLD_MS,
   type Challenge,
   type ChallengeWord,
@@ -189,12 +188,8 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
       setBusy(true);
       playPressHaptic();
       window.setTimeout(() => playAnswerFeedback(correct), FEEDBACK_DELAY_MS);
-      const grade = gradeFromResponse({
-        correct,
-        elapsedMs,
-        hesitated,
-        tier: challenge.tier,
-      });
+      // The server derives the grade from these raw facts (D2).
+      const outcome = { correct, elapsedMs, hesitated };
 
       const id = sessionId ?? (await ensureSession());
       if (!id) {
@@ -205,7 +200,7 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
       try {
         if (correct) {
           const [result] = await Promise.all([
-            gradeCardAction(card.cardId, id, grade),
+            gradeCardAction(card.cardId, id, outcome),
             delay(CORRECT_HOLD_MS),
           ]);
           advance(card, result);
@@ -215,7 +210,7 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
         // where the learning happens (GAME_PLAY §8.1) — then commits and
         // requeues the seedling for one more pass this session.
         await delay(WRONG_HOLD_MS + 500);
-        advance(card, await gradeCardAction(card.cardId, id, grade));
+        advance(card, await gradeCardAction(card.cardId, id, outcome));
       } catch {
         advance(card, null);
       }

@@ -253,3 +253,24 @@ export function gradeFromResponse({
   if (elapsedMs > PERFECT_MAX_RESPONSE_MS) return ReviewGrade.EASY;
   return awardsPerfect(tier) ? ReviewGrade.PERFECT : ReviewGrade.EASY;
 }
+
+// What a client reports about one tap; the grade itself is NEVER trusted
+// from the wire — the server derives it from these raw facts.
+export type GradeOutcome = {
+  correct: boolean;
+  elapsedMs: number;
+  hesitated: boolean;
+};
+
+// Server-authoritative grading (GAME_PLAY §3.2): the tier comes from the
+// DB's pre-review interval, so a tampered client cannot post a grade its
+// response time does not support.
+export function deriveGrade(
+  intervalDaysBefore: number,
+  outcome: GradeOutcome
+): ReviewGrade {
+  return gradeFromResponse({
+    ...outcome,
+    tier: challengeTier(intervalDaysBefore),
+  });
+}

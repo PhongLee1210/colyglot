@@ -3,8 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ReviewGrade } from "@colyglot/srs";
-
 import { useToast } from "@/components/ui/toast";
 import { claimHarvestAction, openHarvestAction } from "@/lib/actions/farm";
 import {
@@ -19,7 +17,6 @@ import {
   buildChallenge,
   CORRECT_HOLD_MS,
   FEEDBACK_DELAY_MS,
-  gradeFromResponse,
   UNDO_WINDOW_MS,
   WRONG_HOLD_MS,
   type Challenge,
@@ -266,10 +263,13 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
   );
 
   const sendGrade = useCallback(
-    async (target: HarvestCard, grade: ReviewGrade) => {
+    async (
+      target: HarvestCard,
+      outcome: { correct: boolean; elapsedMs: number; hesitated: boolean }
+    ) => {
       if (!sessionId) return null;
       try {
-        return await gradeCardAction(target.cardId, sessionId, grade);
+        return await gradeCardAction(target.cardId, sessionId, outcome);
       } catch {
         return null;
       }
@@ -303,16 +303,13 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
       // beat (color burst + tone) lands at 120ms (GAME_PLAY §8.1).
       playPressHaptic();
       window.setTimeout(() => playAnswerFeedback(correct), FEEDBACK_DELAY_MS);
-      const grade = gradeFromResponse({
-        correct,
-        elapsedMs,
-        hesitated,
-        tier: challenge.tier,
-      });
+      // The server derives the grade from these raw facts (D2) — the
+      // tier comes from the DB, never the client.
+      const outcome = { correct, elapsedMs, hesitated };
 
       if (correct) {
         const [result] = await Promise.all([
-          sendGrade(card, grade),
+          sendGrade(card, outcome),
           delay(CORRECT_HOLD_MS),
         ]);
         applyResult(card, result);
@@ -336,7 +333,7 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
         askedAtRef.current = performance.now();
         return;
       }
-      applyResult(card, await sendGrade(card, grade));
+      applyResult(card, await sendGrade(card, outcome));
     },
     [
       card,

@@ -177,6 +177,25 @@ describeIntegration("data layer round-trip", () => {
     ).rejects.toThrow(RangeError);
   });
 
+  test("appendReviewLog persists response metrics for calibration", async () => {
+    const { card } = await createDeckWithCard();
+    const session = await openStudySession(USER_ID);
+
+    await appendReviewLog(USER_ID, {
+      cardId: card.id,
+      sessionId: session.id,
+      grade: ReviewGrade.HARD,
+      intervalDaysBefore: 16,
+      elapsedMs: 7_250,
+      hesitated: true,
+    });
+
+    const [log] = await listReviewLogsByCard(USER_ID, card.id);
+    expect(log?.elapsedMs).toBe(7_250);
+    expect(log?.hesitated).toBe(true);
+    expect(log?.intervalDaysBefore).toBe(16);
+  });
+
   test("review history accumulates and the session closes with counts", async () => {
     const { card } = await createDeckWithCard();
     const session = await openStudySession(USER_ID);

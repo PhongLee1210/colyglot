@@ -45,6 +45,10 @@ export type AppendReviewLogInput = {
   grade: ReviewGrade;
   // Pre-review memory strength for the farm economy; 0 for legacy callers.
   intervalDaysBefore?: number;
+  // Calibration metrics (GAME_PLAY §3.2/§10.4): the raw facts behind the
+  // derived grade, persisted for the threshold-tuning loop.
+  elapsedMs?: number;
+  hesitated?: boolean;
 };
 
 function dueCondition() {

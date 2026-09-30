@@ -15,6 +15,7 @@ import {
   openStudySession,
   upsertCardSchedule,
 } from "@/lib/db/repositories/study";
+import { deriveGrade } from "@/lib/game/core/challenge";
 import {
   harvestPreview,
   XP_BY_GRADE,
@@ -30,6 +31,14 @@ export type GradeResult = {
   // Graduation into the Forest / demotion back to a plot, when this
   // review crossed a lifecycle threshold (GAME_PLAY §5).
   farmEvent: FarmReviewEvent | null;
+};
+
+// The raw facts of one tap — the grade is derived server-side (D2), so a
+// tampered client cannot post a grade its response time does not support.
+export type GradeOutcomeInput = {
+  correct: boolean;
+  elapsedMs: number;
+  hesitated: boolean;
 };
 
 export async function startStudySessionAction(): Promise<ActionResult<string>> {
@@ -48,7 +57,7 @@ export async function startStudySessionAction(): Promise<ActionResult<string>> {
 export async function gradeCardAction(
   cardId: string,
   sessionId: string,
-  grade: ReviewGrade
+  outcome: GradeOutcomeInput
 ): Promise<ActionResult<GradeResult>> {
   const userId = await requireUserId();
   try {
@@ -64,6 +73,12 @@ export async function gradeCardAction(
           lastReviewedAt: current.lastReviewedAt,
         }
       : null;
+    const intervalDaysBefore = current?.intervalDays ?? 0;
+    const grade = deriveGrade(intervalDaysBefore, {
+      correct: outcome.correct,
+      elapsedMs: Math.max(0, Math.round(outcome.elapsedMs)),
+      hesitated: outcome.hesitated,
+    });
     const next = review(state, grade, new Date());
     const upserted = await upsertCardSchedule(userId, cardId, {
       easeFactor: next.easeFactor,
@@ -77,12 +92,13 @@ export async function gradeCardAction(
     if (!upserted) {
       return { ok: false, error: "Card not found" };
     }
-    const intervalDaysBefore = current?.intervalDays ?? 0;
     const log = await appendReviewLog(userId, {
       cardId,
       sessionId,
       grade,
       intervalDaysBefore,
+      elapsedMs: Math.max(0, Math.round(outcome.elapsedMs)),
+      hesitated: outcome.hesitated,
     });
     if (!log) {
       return { ok: false, error: "Session not found" };

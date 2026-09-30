@@ -9,6 +9,7 @@ import {
   challengeDirection,
   challengeTier,
   CHOICE_COUNT,
+  deriveGrade,
   gradeFromResponse,
   showsPinyin,
   shuffle,
@@ -258,6 +259,28 @@ describe("gradeFromResponse", () => {
     expect(answered({ elapsedMs: 800, tier: "ancient" })).toBe(
       ReviewGrade.PERFECT
     );
+  });
+});
+
+describe("deriveGrade", () => {
+  // The server re-derives the grade from the raw outcome (GAME_PLAY §3.2
+  // D2): a tampered client cannot post PERFECT for a 7-second answer.
+  test("derives the tier from the DB interval, not the client", () => {
+    expect(
+      deriveGrade(16, { correct: true, elapsedMs: 900, hesitated: false })
+    ).toBe(ReviewGrade.PERFECT);
+    expect(
+      deriveGrade(1, { correct: true, elapsedMs: 900, hesitated: false })
+    ).toBe(ReviewGrade.EASY);
+    expect(
+      deriveGrade(16, { correct: true, elapsedMs: 7_000, hesitated: false })
+    ).toBe(ReviewGrade.HARD);
+    expect(
+      deriveGrade(1, { correct: false, elapsedMs: 400, hesitated: false })
+    ).toBe(ReviewGrade.FORGOT);
+    expect(
+      deriveGrade(5, { correct: true, elapsedMs: 2_000, hesitated: true })
+    ).toBe(ReviewGrade.HARD);
   });
 });
 
