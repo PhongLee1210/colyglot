@@ -8,6 +8,8 @@ export type FarmStats = {
   planted: number;
   harvested: number;
   goldEarned: number;
+  /** Set once the world's first tree graduated (15d exception used up). */
+  firstGraduation?: boolean;
 };
 
 export type PlotView = {

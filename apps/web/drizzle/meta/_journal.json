@@ -43,6 +43,13 @@
       "when": 1790774645468,
       "tag": "0005_yellow_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790777770344,
+      "tag": "0006_panoramic_mariko_yashida",
+      "breakpoints": true
     }
   ]
 }

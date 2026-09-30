@@ -19,6 +19,7 @@ import type { CardCollocation, CardExample } from "@/lib/game/content/types";
 import { STARTING_GOLD } from "@/lib/game/core/economy";
 import { DEFAULT_MUSIC_VOLUME } from "@/lib/game/music";
 import type { FarmStats } from "@/lib/game/types";
+import { DEFAULT_UI_LANG } from "@/lib/i18n/ui-langs";
 
 export const DEFAULT_SOURCE_LANG = "zh";
 export const DEFAULT_TARGET_LANG = "vi";
@@ -59,6 +60,9 @@ export const cards = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // Set by the graduation hook when the word's interval crosses the
+    // graduation threshold (GAME_PLAY §5.1) — the Forest membership flag.
+    graduatedAt: timestamp("graduated_at", { withTimezone: true }),
   },
   (table) => [
     index("cards_deck_id_idx").on(table.deckId),
@@ -111,6 +115,10 @@ export const reviewLogs = pgTable(
     grade: integer("grade").notNull(),
     // Memory strength at harvest time (pre-review interval); 0 for legacy rows.
     intervalDaysBefore: integer("interval_days_before").notNull().default(0),
+    // Calibration metrics (GAME_PLAY §3.2/§10.4): response time and
+    // hesitation feed the threshold-tuning loop; null on legacy rows.
+    elapsedMs: integer("elapsed_ms"),
+    hesitated: boolean("hesitated").notNull().default(false),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -222,6 +230,9 @@ export const farmBeds = pgTable(
     // "greenhouse" beds hold demoted words only (GAME_PLAY §5.2) — seeds
     // are never planted into them.
     kind: text("kind").notNull().default("garden"),
+    // Which region the bed belongs to (GAME_PLAY §5.3); legacy beds are
+    // homestead by default.
+    regionKey: text("region_key").notNull().default("homestead"),
   },
   (table) => [
     unique("farm_beds_world_position_key").on(table.worldId, table.position),
@@ -316,6 +327,7 @@ export const userSettings = pgTable(
       .notNull()
       .default(DEFAULT_MUSIC_VOLUME),
     musicMuted: boolean("music_muted").notNull().default(false),
+    uiLang: text("ui_lang").notNull().default(DEFAULT_UI_LANG),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -325,6 +337,7 @@ export const userSettings = pgTable(
       "user_settings_music_volume_check",
       sql`${table.musicVolume} between 0 and 100`
     ),
+    check("user_settings_ui_lang_check", sql`${table.uiLang} in ('en', 'vi')`),
   ]
 );
 
