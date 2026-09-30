@@ -1,5 +1,7 @@
 import { overdueRatio } from "@colyglot/srs";
 
+import { GRADUATION_INTERVAL_DAYS } from "@/lib/game/core/economy";
+
 export type CropStage = "fresh" | "growing" | "ready" | "urgent";
 
 export type CropSchedule = { dueAt: Date; intervalDays: number } | null;
@@ -9,6 +11,31 @@ export function cropStage(schedule: CropSchedule, now: Date): CropStage {
   if (!schedule) return "fresh";
   if (schedule.dueAt.getTime() > now.getTime()) return "growing";
   return (cropOverdueRatio(schedule, now) ?? 0) >= 1 ? "urgent" : "ready";
+}
+
+// Graduation countdown (GAME_PLAY §6.2): once a crop's interval reaches
+// 14 days it is one good review away from becoming a forest tree, so it
+// earns the star badge and the warm glow. The window holds until the 21d
+// graduation threshold (15d for a world's first tree).
+export const GRADUATION_SOON_MIN_DAYS = 14;
+
+export function nearGraduation(schedule: CropSchedule): boolean {
+  return (
+    schedule !== null &&
+    schedule.intervalDays >= GRADUATION_SOON_MIN_DAYS &&
+    schedule.intervalDays < GRADUATION_INTERVAL_DAYS
+  );
+}
+
+// Whole days until the review that could graduate this crop; null unless
+// the countdown is live. Never 0 — the review itself might be today.
+export function daysToGraduation(
+  schedule: CropSchedule,
+  now: Date
+): number | null {
+  if (schedule === null || !nearGraduation(schedule)) return null;
+  const ms = schedule.dueAt.getTime() - now.getTime();
+  return Math.max(1, Math.ceil(ms / 86_400_000));
 }
 
 export function formatWait(dueAt: Date, now: Date): string {

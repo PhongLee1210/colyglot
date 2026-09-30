@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { cropStage, formatWait } from "@/lib/game/core/crops";
+import { cropStage, daysToGraduation, formatWait } from "@/lib/game/core/crops";
 import { useSelectionStore } from "@/lib/game/store/selection-store";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
 
@@ -21,6 +21,30 @@ function stageLine(
     case "urgent":
       return "Memory fading — harvest soon";
   }
+}
+
+// Graduation countdown (GAME_PLAY §6.2): the tapped plot tells the player
+// exactly how close their word is to becoming a forest tree.
+function GraduationLine({
+  schedule,
+  now,
+}: {
+  schedule: NonNullable<
+    FarmWorldSnapshot["beds"][number]["plots"][number]["schedule"]
+  >;
+  now: Date;
+}) {
+  const days = daysToGraduation(schedule, now);
+  if (days === null) return null;
+  return (
+    <p
+      data-testid="graduation-countdown"
+      className="mt-1 text-xs font-bold text-amber-600 dark:text-amber-400"
+    >
+      🌟 Graduates to 🌳 in {days} {days === 1 ? "day" : "days"} — keep it
+      healthy!
+    </p>
+  );
 }
 
 // Glass info card for the tapped plot: bottom-anchored above the dock on
@@ -104,6 +128,9 @@ export function PlotInfoCard({
           </p>
           <p className="text-sm font-semibold">{plot.translation}</p>
           {line ? <p className="mt-1 text-xs text-fg-muted">{line}</p> : null}
+          {plot.hanzi && plot.schedule && now !== null ? (
+            <GraduationLine schedule={plot.schedule} now={now} />
+          ) : null}
           {ready ? (
             <button
               type="button"

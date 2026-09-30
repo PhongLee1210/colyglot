@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import { registerCropLabel } from "@/components/farm/farm-3d/crop-label-bridge";
-import { cropStage } from "@/lib/game/core/crops";
+import { cropStage, daysToGraduation } from "@/lib/game/core/crops";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
 import { cn } from "@/lib/utils/cn";
 
@@ -12,6 +12,7 @@ type CropLabel = {
   hanzi: string;
   ripe: boolean;
   progress: number;
+  gradDays: number | null;
 };
 
 function growthProgress(
@@ -48,6 +49,7 @@ export function CropLabels({
             hanzi: plot.hanzi,
             ripe: stage === "ready" || stage === "urgent",
             progress: growthProgress(plot.plantedAt, plot.schedule?.dueAt, now),
+            gradDays: daysToGraduation(plot.schedule, now),
           },
         ];
       })
@@ -69,12 +71,19 @@ export function CropLabels({
             "absolute left-0 top-0 min-w-10 rounded-lg border px-1.5 py-0.5 text-center opacity-0 shadow-[0_2px_6px_rgb(0_0_0/0.25)] backdrop-blur-sm will-change-transform",
             label.ripe
               ? "border-accent/70 bg-accent/85 text-on-accent"
-              : "border-white/50 bg-white/75 text-fg"
+              : label.gradDays !== null
+                ? "border-amber-400/70 bg-amber-300/80 text-amber-950"
+                : "border-white/50 bg-white/75 text-fg"
           )}
         >
           <span className="block font-hanzi text-[13px] font-bold leading-tight">
             {label.hanzi}
           </span>
+          {label.gradDays !== null ? (
+            <span className="mt-0.5 block text-[9px] font-bold leading-tight">
+              🌟 {label.gradDays}d → 🌳
+            </span>
+          ) : null}
           <span className="mt-0.5 block h-1 overflow-hidden rounded-full bg-black/20">
             <span
               className="block h-full rounded-full bg-green-500"

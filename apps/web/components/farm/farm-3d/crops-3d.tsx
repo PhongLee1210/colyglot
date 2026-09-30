@@ -35,6 +35,7 @@ import type { FarmTheme } from "@/lib/game/content/types";
 import {
   cropStage,
   formatWait,
+  nearGraduation,
   wiltIntensity,
   type CropStage,
 } from "@/lib/game/core/crops";
@@ -63,6 +64,9 @@ type CropBase = {
   // 0..1 wilting intensity, proportional to the overdue ratio (GAME_PLAY
   // §4): 0 at the urgent threshold, fully gray and drooped at ratio 3.
   wilt: number;
+  // One good review from becoming a tree (GAME_PLAY §6.2): the crop
+  // carries a pulsing warm tint as its graduation countdown.
+  nearGrad: boolean;
 };
 
 type CropBadge = {
@@ -72,6 +76,7 @@ type CropBadge = {
   caption: string;
   ready: boolean;
   urgent: boolean;
+  nearGrad: boolean;
 };
 
 type StageShift = { from: CropStage; to: CropStage; startedAt: number };
@@ -89,13 +94,23 @@ const WILT_TILT_RAD = 0.42;
 const WILT_SQUASH = 0.22;
 const WILT_DESATURATION = 0.45;
 
-function setWiltColor(mesh: InstancedMesh, index: number, wilt: number) {
+// Warm gold applied on top of (or instead of) the wilt gray: 0 leaves the
+// instance color untouched, 1 is the full graduation glow.
+const GLOW_TINT = new Color("#ffcf6e");
+
+function setWiltColor(
+  mesh: InstancedMesh,
+  index: number,
+  wilt: number,
+  glow: number
+) {
   if (wilt <= 0) {
     _color.setRGB(1, 1, 1);
   } else {
     const gray = 1 - WILT_DESATURATION * wilt;
     _color.setRGB(gray + (1 - gray) * 0.1, gray, gray + (1 - gray) * 0.15);
   }
+  if (glow > 0) _color.lerp(GLOW_TINT, glow * 0.5);
   mesh.setColorAt(index, _color);
 }
 
@@ -161,6 +176,7 @@ export function Crops3D({
         const stage = cropStage(plot.schedule, reference);
         const variant = cropVariant(plot.hanzi);
         const key = `${bed.id}:${plot.slotIndex}`;
+        const nearGrad = nearGraduation(plot.schedule);
         const base: CropBase = {
           key,
           position: new Vector3(position.x, position.y, position.z),
@@ -168,6 +184,7 @@ export function Crops3D({
           scale: 0.92 + variant * 0.08,
           phase: (plot.slotIndex + bedIndex * 3) * 1.7,
           wilt: wiltIntensity(plot.schedule, reference),
+          nearGrad,
         };
         bases[stage].push(base);
         basesByKey.set(key, base);
@@ -182,6 +199,7 @@ export function Crops3D({
           caption: wait,
           ready: stage === "ready",
           urgent: stage === "urgent",
+          nearGrad,
         });
       });
     });
@@ -304,7 +322,13 @@ export function Crops3D({
         _scale.set(scale, scale * (1 - WILT_SQUASH * base.wilt), scale);
         _matrix.compose(_position, _quaternion, _scale);
         mesh.setMatrixAt(cursor, _matrix);
-        setWiltColor(mesh, cursor, base.wilt);
+        // The graduation glow breathes slowly — anticipation, not alarm.
+        setWiltColor(
+          mesh,
+          cursor,
+          base.wilt,
+          base.nearGrad ? 0.55 + 0.45 * Math.sin(time * 2.2 + base.phase) : 0
+        );
         cursor++;
       }
       if (shiftsRef.current.size > 0) {
@@ -330,7 +354,7 @@ export function Crops3D({
           _scale.setScalar(base.scale * morphOutScale(p));
           _matrix.compose(_position, _quaternion, _scale);
           mesh.setMatrixAt(cursor, _matrix);
-          setWiltColor(mesh, cursor, 0);
+          setWiltColor(mesh, cursor, 0, 0);
           cursor++;
         }
       }
@@ -356,12 +380,12 @@ export function Crops3D({
         );
         _matrix.compose(_position, _quaternion, _scale);
         mesh.setMatrixAt(cursor, _matrix);
-        setWiltColor(mesh, cursor, 0);
+        setWiltColor(mesh, cursor, 0, 0);
         cursor++;
       }
       for (let i = cursor; i < capacity; i++) {
         mesh.setMatrixAt(i, PARKED_MATRIX);
-        setWiltColor(mesh, i, 0);
+        setWiltColor(mesh, i, 0, 0);
       }
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -397,7 +421,9 @@ export function Crops3D({
                 {badge.caption}
               </span>
             ) : null}
-            {badge.ready ? (
+            {badge.nearGrad ? (
+              <span className="text-[10px] leading-none drop-shadow">🌟</span>
+            ) : badge.ready ? (
               <span className="text-[10px] leading-none drop-shadow">✨</span>
             ) : badge.urgent ? (
               <span className="text-[10px] leading-none drop-shadow">🐛</span>
