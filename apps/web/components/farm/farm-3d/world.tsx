@@ -282,8 +282,16 @@ export function Farm3DWorld({
         />
         <Forest3D forest={snapshot.forest} layout={layout} />
         <Trees3D layout={layout} />
-        <Decorations3D layout={layout} materials={materials} />
-        <Buildings3D farm={farm} materials={materials} />
+        <Decorations3D
+          layout={layout}
+          materials={materials}
+          items={snapshot.items}
+        />
+        <Buildings3D
+          farm={farm}
+          materials={materials}
+          items={snapshot.items.map((item) => item.itemKey)}
+        />
         <Companion3D farm={farm} />
         <SceneReadyReporter />
       </Suspense>
