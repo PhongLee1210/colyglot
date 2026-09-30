@@ -29,6 +29,7 @@ import {
   START_PLOTS,
   STARTING_GOLD,
 } from "@/lib/game/core/economy";
+import { findShopItem, SHOP_ITEMS } from "@/lib/game/core/shop";
 import type {
   BedView,
   FarmReviewEvent,
@@ -892,6 +893,70 @@ export async function applyFarmReviewHooks(
   }
 
   return null;
+}
+
+export type PurchaseResult =
+  { gold: number } | "insufficient" | "owned" | "locked-tier" | undefined;
+
+// Buys one shop item (GAME_PLAY §6.3): atomic gold guard, one row per
+// world per item, house tiers strictly in order — the ladder is a
+// milestone, not a menu.
+export async function purchaseItem(
+  userId: string,
+  langKey: string,
+  itemKey: string
+): Promise<PurchaseResult> {
+  const item = findShopItem(itemKey);
+  if (!item) {
+    return undefined;
+  }
+  const world = await getFarmWorld(userId, langKey);
+  if (!world) {
+    return undefined;
+  }
+
+  const ownedRows = await getDb()
+    .select({ itemKey: farmItems.itemKey })
+    .from(farmItems)
+    .where(eq(farmItems.worldId, world.id));
+  const owned = new Set(ownedRows.map((row) => row.itemKey));
+  if (owned.has(item.key)) {
+    return "owned";
+  }
+  if (item.houseTier !== undefined) {
+    const previous = findShopItem(
+      SHOP_ITEMS.find(
+        (candidate) => candidate.houseTier === item.houseTier! - 1
+      )?.key ?? ""
+    );
+    if (previous && !owned.has(previous.key)) {
+      return "locked-tier";
+    }
+  }
+
+  return getDb().transaction(async (tx) => {
+    const [paid] = await tx
+      .update(farmWorlds)
+      .set({
+        gold: sql`${farmWorlds.gold} - ${item.price}`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(farmWorlds.id, world.id),
+          sql`${farmWorlds.gold} >= ${item.price}`
+        )
+      )
+      .returning();
+    if (!paid) {
+      return "insufficient" as const;
+    }
+    await tx
+      .insert(farmItems)
+      .values({ worldId: world.id, itemKey: item.key, qty: 1 })
+      .onConflictDoNothing();
+    return { gold: paid.gold };
+  });
 }
 
 export async function recordSweepDay(

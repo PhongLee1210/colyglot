@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 export type PanelTabId =
   | "seeds"
+  | "shop"
   | "progress"
   | "missions"
   | "workshop"

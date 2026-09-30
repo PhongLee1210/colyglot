@@ -6,6 +6,7 @@ import type { FarmWorldSnapshot } from "@/lib/game/types";
 import { panelCardClass } from "./controls";
 import { ProgressTab } from "./progress-tab";
 import { SeedsTab } from "./seeds-tab";
+import { ShopTab } from "./shop-tab";
 import { findPanelTab, type PanelTab } from "./tabs";
 
 export function PanelContent({
@@ -26,6 +27,9 @@ export function PanelContent({
   }
   if (tab.id === "seeds") {
     return <SeedsTab />;
+  }
+  if (tab.id === "shop") {
+    return <ShopTab />;
   }
   return (
     <ProgressTab snapshot={snapshot} streak={streak} tierName={tierName} />

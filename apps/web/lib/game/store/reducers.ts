@@ -65,11 +65,28 @@ export function applyClaim(
       ...snapshot.world,
       gold: claim.gold,
       stats: {
-        planted: snapshot.world.stats.planted,
+        ...snapshot.world.stats,
         harvested: snapshot.world.stats.harvested + claim.cardsHarvested,
         goldEarned: snapshot.world.stats.goldEarned + claim.goldAwarded,
       },
     },
+  };
+}
+
+// A purchase lands: gold is already decremented server-side, so this only
+// marks the item owned for instant UI feedback.
+export function applyItemOwned(
+  snapshot: FarmWorldSnapshot,
+  itemKey: string
+): FarmWorldSnapshot {
+  const existing = snapshot.items.find((item) => item.itemKey === itemKey);
+  return {
+    ...snapshot,
+    items: existing
+      ? snapshot.items.map((item) =>
+          item.itemKey === itemKey ? { ...item, qty: item.qty + 1 } : item
+        )
+      : [...snapshot.items, { itemKey, qty: 1 }],
   };
 }
 

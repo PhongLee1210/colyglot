@@ -12,6 +12,7 @@ export type PanelTab = {
 // still ahead instead of hiding it until the systems ship.
 export const PANEL_TABS: PanelTab[] = [
   { id: "seeds", icon: "🌰", label: "Seeds", locked: false },
+  { id: "shop", icon: "🛒", label: "Shop", locked: false },
   { id: "progress", icon: "📊", label: "Progress", locked: false },
   {
     id: "missions",

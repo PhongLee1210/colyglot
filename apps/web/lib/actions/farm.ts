@@ -11,6 +11,7 @@ import {
   getFarmWorld,
   loadFarmWorldDetail,
   plantSeeds,
+  purchaseItem,
   startFarmWorld,
   unlockRegion,
   type ClaimHarvestResult,
@@ -164,6 +165,37 @@ export async function openHarvestAction(
         })),
       },
     };
+  } catch (error) {
+    return { ok: false, error: toMessage(error) };
+  }
+}
+
+// Buys one shop item (GAME_PLAY §6.3); returns the post-purchase gold so
+// the HUD chip stays honest without a full refresh.
+export async function buyItemAction(
+  langKey: string,
+  itemKey: string
+): Promise<ActionResult<{ gold: number }>> {
+  const userId = await requireUserId();
+  if (!LANG_PACKS[langKey]) {
+    return { ok: false, error: "Unknown language" };
+  }
+  try {
+    const result = await purchaseItem(userId, langKey, itemKey);
+    if (result === undefined) {
+      return { ok: false, error: "Item not found" };
+    }
+    if (result === "owned") {
+      return { ok: false, error: "Already owned" };
+    }
+    if (result === "locked-tier") {
+      return { ok: false, error: "Buy the previous house tier first" };
+    }
+    if (result === "insufficient") {
+      return { ok: false, error: "Not enough gold" };
+    }
+    revalidatePath("/");
+    return { ok: true, data: result };
   } catch (error) {
     return { ok: false, error: toMessage(error) };
   }

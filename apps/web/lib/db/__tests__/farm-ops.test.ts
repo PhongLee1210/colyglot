@@ -22,6 +22,7 @@ import {
   getSweepStreak,
   loadFarmWorldDetail,
   plantSeeds,
+  purchaseItem,
   recordSweepDay,
   startFarmWorld,
   unlockRegion,
@@ -594,4 +595,48 @@ describeIntegration("farm bed operations and harvest claim", () => {
     await loadFarmWorldDetail(USER, "zh-vi");
     expect(await getSweepStreak(USER, "zh-vi")).toBe(2);
   }, 15_000);
+
+  describe("shop purchases (GAME_PLAY §6.3)", () => {
+    test("buying charges gold atomically and writes farm_items once", async () => {
+      await startFarmWorld(USER, ZH);
+      await rawClient`update farm_worlds set gold = 500 where user_id = ${USER} and lang_key = 'zh-vi'`;
+
+      const bought = await purchaseItem(USER, "zh-vi", "fence_stone");
+      expect(bought).toEqual({ gold: 440 });
+
+      const detail = await loadFarmWorldDetail(USER, "zh-vi");
+      expect(detail!.items).toContainEqual({ itemKey: "fence_stone", qty: 1 });
+
+      // Second buy: owned, nothing charged.
+      expect(await purchaseItem(USER, "zh-vi", "fence_stone")).toBe("owned");
+      expect((await loadFarmWorldDetail(USER, "zh-vi"))!.world.gold).toBe(440);
+    }, 15_000);
+
+    test("insufficient gold and out-of-order house tiers are rejected", async () => {
+      await startFarmWorld(USER, ZH);
+      // Starting gold 40 < 60.
+      expect(await purchaseItem(USER, "zh-vi", "fence_stone")).toBe(
+        "insufficient"
+      );
+
+      await rawClient`update farm_worlds set gold = 3000 where user_id = ${USER} and lang_key = 'zh-vi'`;
+      expect(await purchaseItem(USER, "zh-vi", "house_2")).toBe("locked-tier");
+      expect(await purchaseItem(USER, "zh-vi", "house_1")).toMatchObject({
+        gold: 2_700,
+      });
+      expect(await purchaseItem(USER, "zh-vi", "house_2")).toMatchObject({
+        gold: 1_800,
+      });
+      // 1_800 < 2_500 — the villa waits.
+      expect(await purchaseItem(USER, "zh-vi", "house_3")).toBe("insufficient");
+    }, 15_000);
+
+    test("unknown items and other users' worlds are rejected", async () => {
+      await startFarmWorld(USER, ZH);
+      expect(await purchaseItem(USER, "zh-vi", "rocket")).toBeUndefined();
+      expect(await purchaseItem("stranger", "zh-vi", "fence_stone")).toBe(
+        undefined
+      );
+    }, 15_000);
+  });
 });
