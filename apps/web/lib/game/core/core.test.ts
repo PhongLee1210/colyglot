@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { ReviewGrade } from "@colyglot/srs";
 
+import type { BedView } from "@/lib/game/types";
 import { cropStage, formatWait, wiltIntensity } from "./crops";
 import {
   applyStreakBonus,
@@ -13,6 +14,7 @@ import {
   harvestPreview,
   streakBonusRate,
 } from "./economy";
+import { pickPlantingBed } from "./planting";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -156,5 +158,56 @@ describe("formatWait", () => {
     );
     expect(formatWait(new Date(now.getTime() + 3 * DAY), now)).toBe("3d");
     expect(formatWait(new Date(now.getTime() - 1000), now)).toBe("now");
+  });
+});
+
+describe("pickPlantingBed", () => {
+  const bed = (
+    id: string,
+    regionKey: "homestead" | "market",
+    filled: number,
+    plotCount = 6,
+    kind: "garden" | "greenhouse" = "garden"
+  ): BedView => ({
+    id,
+    deckId: `deck-${id}`,
+    name: id,
+    plotCount,
+    position: 0,
+    kind,
+    regionKey,
+    plots: Array.from({ length: plotCount }, (_, slotIndex) => ({
+      slotIndex,
+      cardId: slotIndex < filled ? `card-${id}-${slotIndex}` : null,
+      hanzi: slotIndex < filled ? "你" : null,
+      pinyin: null,
+      translation: null,
+      plantedAt: null,
+      variant: 0,
+      schedule: null,
+    })),
+  });
+
+  test("seeds land in their own region's first bed with a free slot", () => {
+    const beds = [
+      bed("h1", "homestead", 6),
+      bed("m1", "market", 2),
+      bed("m2", "market", 0, 12),
+    ];
+    expect(pickPlantingBed(beds, "market")?.id).toBe("m1");
+    expect(pickPlantingBed(beds, "homestead")?.id).toBe("h1");
+  });
+
+  test("a full first bed spills to the region's next bed, then falls back", () => {
+    const beds = [bed("h1", "homestead", 6), bed("h2", "homestead", 1)];
+    expect(pickPlantingBed(beds, "homestead")?.id).toBe("h2");
+    expect(pickPlantingBed([bed("h1", "homestead", 6)], "homestead")?.id).toBe(
+      "h1"
+    );
+  });
+
+  test("the greenhouse never takes seeds; unknown region has no bed", () => {
+    const beds = [bed("g1", "homestead", 0, 3, "greenhouse")];
+    expect(pickPlantingBed(beds, "homestead")).toBeUndefined();
   });
 });
