@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Suspense } from "react";
 
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { SignInHeading } from "@/components/auth/sign-in-heading";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
@@ -28,12 +29,7 @@ export default function SignInPage() {
           className="h-16 w-auto"
         />
       </div>
-      <div className="relative flex flex-col items-center gap-1 text-center animate-[stagger-in_360ms_cubic-bezier(0.22,1,0.36,1)_60ms_both]">
-        <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-        <p className="text-sm text-fg-muted">
-          Sign in to keep your streak and your decks.
-        </p>
-      </div>
+      <SignInHeading />
       <div
         className="relative animate-[stagger-in_360ms_cubic-bezier(0.22,1,0.36,1)_120ms_both]"
         aria-live="polite"

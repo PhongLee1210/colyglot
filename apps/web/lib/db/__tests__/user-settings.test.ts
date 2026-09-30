@@ -13,7 +13,9 @@ import postgres from "postgres";
 
 import {
   getMusicSettings,
+  getUiLang,
   upsertMusicSettings,
+  upsertUiLang,
 } from "../repositories/user-settings";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
@@ -81,5 +83,40 @@ describeIntegration("user settings repository", () => {
     await expect(
       upsertMusicSettings(USER_A, { musicVolume: 2.5, musicMuted: false })
     ).rejects.toThrow(RangeError);
+  });
+
+  test("returns the default ui lang when the user has no row", async () => {
+    expect(await getUiLang(USER_A)).toBe("vi");
+  });
+
+  test("upserts the ui lang and updates it on conflict", async () => {
+    await upsertUiLang(USER_A, "en");
+    expect(await getUiLang(USER_A)).toBe("en");
+
+    await upsertUiLang(USER_A, "vi");
+    expect(await getUiLang(USER_A)).toBe("vi");
+  });
+
+  test("ui lang upsert preserves music columns and vice versa", async () => {
+    await upsertMusicSettings(USER_A, { musicVolume: 55, musicMuted: true });
+    await upsertUiLang(USER_A, "en");
+    expect(await getMusicSettings(USER_A)).toEqual({
+      musicVolume: 55,
+      musicMuted: true,
+    });
+
+    await upsertMusicSettings(USER_A, { musicVolume: 10, musicMuted: false });
+    expect(await getUiLang(USER_A)).toBe("en");
+  });
+
+  test("isolates the ui lang per user", async () => {
+    await upsertUiLang(USER_A, "en");
+    expect(await getUiLang(USER_B)).toBe("vi");
+  });
+
+  test("rejects invalid ui langs", async () => {
+    await expect(upsertUiLang(USER_A, "fr" as never)).rejects.toThrow(
+      RangeError
+    );
   });
 });

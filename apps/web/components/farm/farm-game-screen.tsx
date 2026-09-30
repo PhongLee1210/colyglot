@@ -7,7 +7,10 @@ import {
   listFarmWorlds,
   loadFarmWorldDetail,
 } from "@/lib/db/repositories/farm";
-import { getMusicSettings } from "@/lib/db/repositories/user-settings";
+import {
+  getMusicSettings,
+  getUiLang,
+} from "@/lib/db/repositories/user-settings";
 import { LANG_PACKS } from "@/lib/game/content";
 import type { FarmWorldCard } from "@/lib/game/types";
 
@@ -26,9 +29,10 @@ export async function FarmGameScreen({ langKey }: { langKey?: string }) {
   if (langKey && !LANG_PACKS[langKey]) {
     redirect("/");
   }
-  const [overviews, musicSettings] = await Promise.all([
+  const [overviews, musicSettings, uiLang] = await Promise.all([
     listFarmWorlds(userId),
     getMusicSettings(userId),
+    getUiLang(userId),
   ]);
 
   // The game boots straight into a world: an explicit ?lang wins, then the
@@ -73,6 +77,7 @@ export async function FarmGameScreen({ langKey }: { langKey?: string }) {
         volume: musicSettings.musicVolume,
         muted: musicSettings.musicMuted,
       }}
+      initialUiLang={uiLang}
     />
   );
 }

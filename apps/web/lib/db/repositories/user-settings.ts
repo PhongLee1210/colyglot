@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { DEFAULT_MUSIC_VOLUME } from "@/lib/game/music";
+import { DEFAULT_UI_LANG, UI_LANGS, type UiLang } from "@/lib/i18n/ui-langs";
 
 import { getDb } from "../index";
 import { userSettings, type UserSettings } from "../schema";
@@ -46,4 +47,32 @@ export async function upsertMusicSettings(
       musicMuted: userSettings.musicMuted,
     });
   return row!;
+}
+
+export async function getUiLang(userId: string): Promise<UiLang> {
+  const [row] = await getDb()
+    .select({ uiLang: userSettings.uiLang })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+    .limit(1);
+  const lang = row?.uiLang;
+  return UI_LANGS.includes(lang as UiLang) ? (lang as UiLang) : DEFAULT_UI_LANG;
+}
+
+export async function upsertUiLang(
+  userId: string,
+  lang: UiLang
+): Promise<UiLang> {
+  if (!UI_LANGS.includes(lang)) {
+    throw new RangeError(`uiLang must be one of ${UI_LANGS.join(", ")}`);
+  }
+  const [row] = await getDb()
+    .insert(userSettings)
+    .values({ userId, uiLang: lang })
+    .onConflictDoUpdate({
+      target: userSettings.userId,
+      set: { uiLang: lang, updatedAt: new Date() },
+    })
+    .returning({ uiLang: userSettings.uiLang });
+  return row!.uiLang as UiLang;
 }

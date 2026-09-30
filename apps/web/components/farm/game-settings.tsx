@@ -3,6 +3,7 @@
 import { Check, Settings, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { MUSIC_VOLUME_MAX, MUSIC_VOLUME_MIN } from "@/lib/game/music";
 import {
@@ -11,6 +12,12 @@ import {
   useMusicStore,
 } from "@/lib/game/store/music-store";
 import type { FarmWorldCard } from "@/lib/game/types";
+import {
+  onUiLangPersist,
+  useUiLangStore,
+} from "@/lib/i18n/store/ui-lang-store";
+import { UI_LANG_NAMES, UI_LANGS } from "@/lib/i18n/ui-langs";
+import { useT } from "@/lib/i18n/use-t";
 
 const iconButtonClass =
   "flex size-9 items-center justify-center rounded-full bg-white/40 text-fg transition hover:bg-white/60 active:scale-95 dark:bg-black/25 dark:hover:bg-black/40";
@@ -32,6 +39,9 @@ export function GameSettings({
   const muted = useMusicStore((state) => state.muted);
   const setVolume = useMusicStore((state) => state.setVolume);
   const setMuted = useMusicStore((state) => state.setMuted);
+  const uiLang = useUiLangStore((state) => state.uiLang);
+  const setUiLang = useUiLangStore((state) => state.setUiLang);
+  const t = useT();
 
   useEffect(() => {
     if (saved) {
@@ -42,14 +52,20 @@ export function GameSettings({
 
   useEffect(() => {
     onMusicPersist(() => setSaved(true));
+    onUiLangPersist(() => setSaved(true));
   }, []);
+
+  function switchUiLang(lang: (typeof UI_LANGS)[number]) {
+    if (lang === uiLang) return;
+    setUiLang(lang);
+  }
 
   return (
     <>
       <button
         type="button"
-        aria-label="Game settings"
-        title="Settings"
+        aria-label={t.settings.open}
+        title={t.settings.title}
         onClick={() => setOpen(true)}
         className={iconButtonClass}
       >
@@ -61,12 +77,38 @@ export function GameSettings({
           flushMusicPersist();
           setOpen(false);
         }}
-        title="Settings"
+        title={t.settings.title}
         modal={false}
       >
         <section className="flex flex-col gap-4">
           <div>
-            <h3 className="mb-3 text-sm font-bold">Language</h3>
+            <h3 className="mb-3 text-sm font-bold">
+              {t.settings.interfaceLanguage}
+            </h3>
+            <div className="flex gap-2" role="group">
+              {UI_LANGS.map((lang) => {
+                const active = lang === uiLang;
+                return (
+                  <Button
+                    key={lang}
+                    type="button"
+                    variant={active ? "primary" : "secondary"}
+                    size="sm"
+                    className="flex-1"
+                    aria-pressed={active}
+                    data-testid={`settings-ui-lang-${lang}`}
+                    onClick={() => switchUiLang(lang)}
+                  >
+                    {UI_LANG_NAMES[lang]}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <h3 className="mb-3 text-sm font-bold">
+              {t.settings.courseLanguage}
+            </h3>
             <div className="flex flex-col gap-2">
               {worlds.map((world) => {
                 const active = world.langKey === activeLangKey;
@@ -81,7 +123,7 @@ export function GameSettings({
                     </span>
                     {active ? (
                       <span className="text-xs font-bold text-fg-muted">
-                        Playing
+                        {t.settings.playing}
                       </span>
                     ) : (
                       <button
@@ -92,10 +134,10 @@ export function GameSettings({
                         onClick={() => onSelectWorld(world)}
                       >
                         {busy
-                          ? "Switching…"
+                          ? t.settings.switching
                           : world.started
-                            ? "Switch"
-                            : "Start"}
+                            ? t.settings.switch
+                            : t.settings.start}
                       </button>
                     )}
                   </div>
@@ -104,11 +146,11 @@ export function GameSettings({
             </div>
           </div>
           <div>
-            <h3 className="mb-3 text-sm font-bold">Music</h3>
+            <h3 className="mb-3 text-sm font-bold">{t.settings.music}</h3>
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                aria-label={muted ? "Unmute music" : "Mute music"}
+                aria-label={muted ? t.settings.unmute : t.settings.mute}
                 aria-pressed={muted}
                 data-testid="music-mute"
                 onClick={() => setMuted(!muted)}
@@ -122,7 +164,7 @@ export function GameSettings({
               </button>
               <input
                 type="range"
-                aria-label="Music volume"
+                aria-label={t.settings.volumeLabel}
                 data-testid="music-volume"
                 min={MUSIC_VOLUME_MIN}
                 max={MUSIC_VOLUME_MAX}
@@ -145,7 +187,7 @@ export function GameSettings({
           {saved && (
             <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 dark:bg-green-900/20 dark:text-green-400">
               <Check className="size-4" aria-hidden />
-              Settings saved
+              {t.settings.saved}
             </div>
           )}
         </section>

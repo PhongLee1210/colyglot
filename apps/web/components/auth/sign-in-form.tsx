@@ -10,17 +10,18 @@ import {
   signInWithEmailAction,
   signInWithGoogleAction,
 } from "@/lib/actions/auth";
-
-const CALLBACK_ERRORS: Record<string, string> = {
-  callback: "That sign-in link is invalid or expired — request a new one.",
-  oauth: "Google sign-in isn't available yet.",
-};
+import { useT } from "@/lib/i18n/use-t";
 
 export function SignInForm() {
+  const t = useT();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
+  const callbackErrors: Record<string, string> = {
+    callback: t.signIn.errorCallback,
+    oauth: t.signIn.errorOauth,
+  };
   const [error, setError] = useState<string | null>(
-    CALLBACK_ERRORS[searchParams.get("error") ?? ""] ?? null
+    callbackErrors[searchParams.get("error") ?? ""] ?? null
   );
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -49,8 +50,9 @@ export function SignInForm() {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-sm text-fg-muted">
-          Check your email — we sent a sign-in link to{" "}
-          <span className="font-medium text-fg">{sentTo}</span>.
+          {t.signIn.sentPrefix}{" "}
+          <span className="font-medium text-fg">{sentTo}</span>
+          {t.signIn.sentSuffix}
         </p>
         <Button
           variant="secondary"
@@ -59,7 +61,7 @@ export function SignInForm() {
             setEmail("");
           }}
         >
-          Use a different email
+          {t.signIn.useDifferentEmail}
         </Button>
       </div>
     );
@@ -71,27 +73,27 @@ export function SignInForm() {
       <form
         className="flex flex-col gap-4"
         action={submitEmail}
-        aria-label="Sign in with email"
+        aria-label={t.signIn.emailFormLabel}
       >
-        <Field label="Email" htmlFor="email">
+        <Field label={t.signIn.emailLabel} htmlFor="email">
           <Input
             id="email"
             name="email"
             type="email"
             autoComplete="email"
             required
-            placeholder="you@example.com"
+            placeholder={t.signIn.emailPlaceholder}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
         </Field>
         <Button type="submit" block disabled={pending}>
-          {pending ? "Sending…" : "Send magic link"}
+          {pending ? t.signIn.sending : t.signIn.sendMagicLink}
         </Button>
       </form>
       <div className="flex items-center gap-3 text-xs text-fg-subtle">
         <span className="h-px flex-1 bg-line" aria-hidden />
-        or
+        {t.signIn.or}
         <span className="h-px flex-1 bg-line" aria-hidden />
       </div>
       <Button
@@ -100,7 +102,7 @@ export function SignInForm() {
         disabled={pending}
         onClick={submitGoogle}
       >
-        Continue with Google
+        {t.signIn.continueWithGoogle}
       </Button>
     </div>
   );

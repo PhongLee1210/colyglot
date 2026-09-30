@@ -1,8 +1,12 @@
 "use server";
 
 import { requireUserId } from "@/lib/auth/session";
-import { upsertMusicSettings } from "@/lib/db/repositories/user-settings";
+import {
+  upsertMusicSettings,
+  upsertUiLang,
+} from "@/lib/db/repositories/user-settings";
 import { clampMusicVolume } from "@/lib/game/music";
+import { UI_LANGS, type UiLang } from "@/lib/i18n/ui-langs";
 
 import type { ActionResult } from "./types";
 
@@ -34,6 +38,21 @@ export async function updateMusicSettingsAction(
       ok: true,
       data: { volume: saved.musicVolume, muted: saved.musicMuted },
     };
+  } catch (error) {
+    return { ok: false, error: toMessage(error) };
+  }
+}
+
+export async function updateUiLangAction(
+  lang: string
+): Promise<ActionResult<{ uiLang: UiLang }>> {
+  const userId = await requireUserId();
+  if (!UI_LANGS.includes(lang as UiLang)) {
+    return { ok: false, error: "Invalid interface language" };
+  }
+  try {
+    const saved = await upsertUiLang(userId, lang as UiLang);
+    return { ok: true, data: { uiLang: saved } };
   } catch (error) {
     return { ok: false, error: toMessage(error) };
   }

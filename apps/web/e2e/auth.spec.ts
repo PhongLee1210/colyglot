@@ -8,7 +8,7 @@ test.describe("anonymous access", () => {
 
     await expect(page).toHaveURL(/\/sign-in\?next=/);
     await expect(
-      page.getByRole("heading", { name: "Welcome back" })
+      page.getByRole("heading", { name: "Chào mừng trở lại" })
     ).toBeVisible();
   });
 
@@ -17,7 +17,7 @@ test.describe("anonymous access", () => {
 
     await expect(page).toHaveURL(/\/sign-in/);
     await expect(
-      page.getByRole("heading", { name: "Welcome back" })
+      page.getByRole("heading", { name: "Chào mừng trở lại" })
     ).toBeVisible();
   });
 

@@ -5,7 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useToast } from "@/components/ui/toast";
 import { startWorldAction, switchWorldAction } from "@/lib/actions/farm";
-import { updateMusicSettingsAction } from "@/lib/actions/settings";
+import {
+  updateMusicSettingsAction,
+  updateUiLangAction,
+} from "@/lib/actions/settings";
 import { LANG_PACKS } from "@/lib/game/content";
 import type { MusicSettings } from "@/lib/game/music";
 import { useCameraStore } from "@/lib/game/store/camera-store";
@@ -18,6 +21,12 @@ import {
 import { useSceneStore } from "@/lib/game/store/scene-store";
 import { useSelectionStore } from "@/lib/game/store/selection-store";
 import type { FarmWorldCard, FarmWorldSnapshot } from "@/lib/game/types";
+import {
+  bindUiLangPersistence,
+  useUiLangStore,
+} from "@/lib/i18n/store/ui-lang-store";
+import type { UiLang } from "@/lib/i18n/ui-langs";
+import { useT } from "@/lib/i18n/use-t";
 
 import { BedRail } from "./bed-rail";
 import { CoinFlightHost } from "./coin-flight-host";
@@ -55,6 +64,7 @@ export function FarmGame({
   streak,
   skipTitle,
   musicSettings,
+  initialUiLang,
 }: {
   langKey: string;
   initialSnapshot: FarmWorldSnapshot | null;
@@ -63,10 +73,14 @@ export function FarmGame({
   streak: number;
   skipTitle: boolean;
   musicSettings: MusicSettings;
+  initialUiLang: UiLang;
 }) {
   const snapshot = useFarmStore((state) => state.snapshot);
   const hydrate = useFarmStore((state) => state.hydrate);
   const hydrateMusic = useMusicStore((state) => state.hydrate);
+  const uiLang = useUiLangStore((state) => state.uiLang);
+  const hydrateUiLang = useUiLangStore((state) => state.hydrate);
+  const t = useT();
   const sceneReady = useSceneStore((state) => state.sceneReady);
   const { toast } = useToast();
   const [phase, setPhase] = useState<Phase>("loading");
@@ -89,10 +103,19 @@ export function FarmGame({
   }, [musicSettings, hydrateMusic]);
 
   useEffect(() => {
+    hydrateUiLang(initialUiLang);
+  }, [initialUiLang, hydrateUiLang]);
+
+  useEffect(() => {
     bindMusicPersistence((settings) =>
       updateMusicSettingsAction(settings.volume, settings.muted)
     );
+    bindUiLangPersistence((lang) => updateUiLangAction(lang));
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = uiLang;
+  }, [uiLang]);
 
   const current = snapshot ?? initialSnapshot;
   const pack =
@@ -139,19 +162,19 @@ export function FarmGame({
         useCameraStore.getState().reset();
         useSelectionStore.getState().clearSelection();
         closePanel();
-        toast(`Welcome to your ${world.name} farm`, "success");
+        toast(t.farm.welcomeToFarm(world.name), "success");
         if (phase === "title") {
           beginPlay(world.langKey);
         } else {
           syncUrl(world.langKey);
         }
       } catch {
-        toast("Connection lost — check your network and try again", "danger");
+        toast(t.farm.connectionLost, "danger");
       } finally {
         setBusyLangKey(null);
       }
     },
-    [busyLangKey, hydrate, phase, beginPlay, closePanel, syncUrl, toast]
+    [busyLangKey, hydrate, phase, beginPlay, closePanel, syncUrl, toast, t]
   );
 
   const finishLoading = useCallback(() => {
