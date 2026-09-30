@@ -38,6 +38,14 @@ export const UNDO_WINDOW_MS = 2000;
 export const FEEDBACK_DELAY_MS = 120;
 export const SHAKE_MS = 120;
 
+// Per-answer juice beats (GAME_PLAY §8.1), scheduled from the moment the
+// answer landed: coins lift off toward the session tally at 180ms, the
+// prompt pulses at 400ms once the color burst settles, and the tally
+// bumps at 600ms as the coins arrive.
+export const COIN_FLIGHT_DELAY_MS = 180;
+export const PROMPT_PULSE_DELAY_MS = 400;
+export const TALLY_BUMP_DELAY_MS = 600;
+
 // Early taps in the last instant of a hold still count for the next
 // question (GAME_PLAY §8.4 rule 3): a tap buffered within this window of
 // the next grid appearing replays onto the choice at the same position.

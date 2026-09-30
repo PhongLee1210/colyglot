@@ -654,6 +654,17 @@
   }
 }
 
+/* Correct-answer prompt pulse lands after the color burst settles. */
+@keyframes prompt-pop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.12);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

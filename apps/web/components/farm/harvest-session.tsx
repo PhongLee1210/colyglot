@@ -15,8 +15,11 @@ import { playAnswerFeedback, playPressHaptic } from "@/lib/game/audio/sfx";
 import { LANG_PACKS } from "@/lib/game/content";
 import {
   buildChallenge,
+  COIN_FLIGHT_DELAY_MS,
   CORRECT_HOLD_MS,
   FEEDBACK_DELAY_MS,
+  PROMPT_PULSE_DELAY_MS,
+  TALLY_BUMP_DELAY_MS,
   UNDO_WINDOW_MS,
   WRONG_HOLD_MS,
   type Challenge,
@@ -31,6 +34,7 @@ import type { FarmReviewEvent, HarvestCard } from "@/lib/game/types";
 
 import { HarvestCelebration } from "./celebration";
 import { BackToFarmButton, FarmOverlay, FarmPanel } from "./farm-overlay";
+import { spawnAnswerCoins } from "./harvest/answer-beats";
 import { AnswerReveal } from "./harvest/answer-reveal";
 import { ChallengePrompt } from "./harvest/challenge-prompt";
 import { ChoiceGrid } from "./harvest/choice-grid";
@@ -101,6 +105,14 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
   const reviewedIdsRef = useRef<Set<string>>(new Set());
   const askedAtRef = useRef(0);
   const resolutionRef = useRef<WrongAnswerResolution | null>(null);
+  // §8.1 beats need screen anchors: the answered card block lifts the
+  // coins, the header tally is where they land.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const tallyRef = useRef<HTMLSpanElement>(null);
+  const [sessionGold, setSessionGold] = useState(0);
+  // Remounting the tally chip on each bump replays gold-bump.
+  const [tallyBumpKey, setTallyBumpKey] = useState(0);
+  const [pulse, setPulse] = useState(false);
   const [pendingFx, setPendingFx] = useState<{
     entries: HarvestFxInput[];
     goldAwarded: number;
@@ -146,6 +158,7 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
       setPicked(null);
       setHesitated(false);
       setCanContinue(false);
+      setPulse(false);
       askedAtRef.current = performance.now();
     },
     [pool]
@@ -277,6 +290,25 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
     [sessionId]
   );
 
+  // The §8.1 beats, each offset from the moment the answer landed so a
+  // slow network stretches the hold instead of the choreography.
+  const scheduleAnswerBeats = useCallback(
+    (answeredAt: number, gold: number) => {
+      const behind = performance.now() - answeredAt;
+      const at = (beat: number) => Math.max(0, beat - behind);
+      window.setTimeout(
+        () => spawnAnswerCoins(contentRef.current, tallyRef.current),
+        at(COIN_FLIGHT_DELAY_MS)
+      );
+      window.setTimeout(() => setPulse(true), at(PROMPT_PULSE_DELAY_MS));
+      window.setTimeout(() => {
+        setSessionGold((sum) => sum + gold);
+        setTallyBumpKey((key) => key + 1);
+      }, at(TALLY_BUMP_DELAY_MS));
+    },
+    []
+  );
+
   const waitForWrongAnswer = useCallback((): Promise<boolean> => {
     return new Promise((resolve) => {
       const settle = (undone: boolean) => {
@@ -308,10 +340,17 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
       const outcome = { correct, elapsedMs, hesitated };
 
       if (correct) {
-        const [result] = await Promise.all([
-          sendGrade(card, outcome),
-          delay(CORRECT_HOLD_MS),
-        ]);
+        // The beats need the server's gold number, so the grade goes
+        // first; the hold still covers the full 900ms pacing either way.
+        // Retries show a learning step instead of gold, so they skip the
+        // gold beats entirely.
+        const answeredAt = performance.now();
+        const result = await sendGrade(card, outcome);
+        if (result?.ok && !retried.has(card.cardId)) {
+          scheduleAnswerBeats(answeredAt, result.data.goldPreview.total);
+        }
+        const remaining = CORRECT_HOLD_MS - (performance.now() - answeredAt);
+        if (remaining > 0) await delay(remaining);
         applyResult(card, result);
         return;
       }
@@ -341,8 +380,10 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
       picked,
       busy,
       hesitated,
+      retried,
       sendGrade,
       applyResult,
+      scheduleAnswerBeats,
       waitForWrongAnswer,
     ]
   );
@@ -463,10 +504,22 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
       ) : null}
       <header className="flex items-center justify-between border-b border-line p-4">
         <h1 className="text-lg font-extrabold">🧺 Harvest</h1>
-        <span className="text-sm text-fg-muted">
-          {total ? `${completed} of ${total}` : `${completed} harvested`}
-          {pendingRetries > 0 ? ` · ${pendingRetries} to retry` : ""}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-fg-muted">
+            {total ? `${completed} of ${total}` : `${completed} harvested`}
+            {pendingRetries > 0 ? ` · ${pendingRetries} to retry` : ""}
+          </span>
+          {/* Session gold tally — always mounted so the per-answer coins
+              have a landing pad from the first correct answer (§8.1). */}
+          <span
+            ref={tallyRef}
+            key={tallyBumpKey}
+            data-testid="session-gold"
+            className="rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-bold text-amber-800 animate-[gold-bump_600ms_ease-out] dark:bg-amber-400/15 dark:text-amber-300"
+          >
+            {sessionGold} 💰
+          </span>
+        </div>
         <button
           type="button"
           className="rounded-full border border-line px-4 py-1 text-sm transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -476,7 +529,10 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
           Finish
         </button>
       </header>
-      <div className="relative mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-5 overflow-y-auto p-6 text-center">
+      <div
+        ref={contentRef}
+        className="relative mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-5 overflow-y-auto p-6 text-center"
+      >
         {preview ? (
           <div
             aria-live="polite"
@@ -505,11 +561,24 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
         ) : null}
 
         {challenge && card ? (
-          <>
-            <ChallengePrompt
-              challenge={challenge}
-              retry={retried.has(card.cardId)}
-            />
+          // Keyed by card so every new question slides in fresh (§8.1);
+          // the prompt block then pulses on the 400ms beat.
+          <div
+            key={card.cardId}
+            className="flex w-full flex-col items-center gap-5 animate-[stagger-in_150ms_ease-out] motion-reduce:animate-none"
+          >
+            <div
+              className={
+                pulse
+                  ? "animate-[prompt-pop_260ms_ease-out] motion-reduce:animate-none"
+                  : ""
+              }
+            >
+              <ChallengePrompt
+                challenge={challenge}
+                retry={retried.has(card.cardId)}
+              />
+            </div>
             {/* Needing to hear the word before answering is hesitation,
                 and it costs the same as answering slowly. */}
             <span onClickCapture={markHesitated}>
@@ -538,7 +607,7 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
               onPick={answer}
               onHesitate={markHesitated}
             />
-          </>
+          </div>
         ) : (
           <div
             aria-hidden="true"
