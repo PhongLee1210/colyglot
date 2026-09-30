@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 
 import type { SeedWord } from "@/lib/game/content/types";
+import type { FarmWorldSnapshot } from "@/lib/game/types";
 import { createCard, createDeck } from "../repositories/content";
 import {
   applyFarmReviewHooks,
@@ -23,6 +24,7 @@ import {
   plantSeeds,
   recordSweepDay,
   startFarmWorld,
+  unlockRegion,
 } from "../repositories/farm";
 import {
   appendReviewLog,
@@ -98,7 +100,7 @@ describeIntegration("farm bed operations and harvest claim", () => {
     ]);
     expect(dup!.planted.map((p) => p.hanzi)).toEqual(["再见"]);
     expect(dup!.skipped).toEqual(["你好"]);
-  });
+  }, 15_000);
 
   test("plantSeeds reports bed full", async () => {
     await startFarmWorld(USER, ZH);
@@ -428,6 +430,108 @@ describeIntegration("farm bed operations and harvest claim", () => {
     });
     expect((await loadFarmWorldDetail(USER, "zh-vi"))!.forest).toHaveLength(0);
   }, 15_000);
+
+  describe("region unlock (GAME_PLAY §5.3)", () => {
+    test("homestead is unlocked from the start; market gates on trees first", async () => {
+      await startFarmWorld(USER, ZH);
+      const detail = await loadFarmWorldDetail(USER, "zh-vi");
+      expect(detail!.regions).toHaveLength(2);
+      expect(detail!.regions[0]).toMatchObject({
+        key: "homestead",
+        unlocked: true,
+      });
+      expect(detail!.regions[1]).toMatchObject({
+        key: "market",
+        unlocked: false,
+        treesGateMet: false,
+      });
+
+      // 40 starting gold < 1200, and no forest trees: the tree gate
+      // reports first because trees cannot be bought.
+      const rejected = await unlockRegion(USER, "zh-vi", "market");
+      expect(rejected).toBe("trees-gate");
+    }, 15_000);
+
+    test("market rejects without gold even at 25 trees, then unlocks once", async () => {
+      await startFarmWorld(USER, ZH);
+      const bedId = await gardenBedId();
+      // 25 forest trees: plant a bed's worth, graduate it (freeing every
+      // plot), plant the next batch — the real path a player takes.
+      const hanzi = [
+        "一",
+        "二",
+        "三",
+        "四",
+        "五",
+        "六",
+        "七",
+        "八",
+        "九",
+        "十",
+        "十一",
+        "十二",
+        "十三",
+        "十四",
+        "十五",
+        "十六",
+        "十七",
+        "十八",
+        "十九",
+        "二十",
+        "廿一",
+        "廿二",
+        "廿三",
+        "廿四",
+        "廿五",
+      ];
+      let graduated = 0;
+      let cursor = 0;
+      while (graduated < 25) {
+        const batch = hanzi.slice(cursor, cursor + 6).map(word);
+        cursor += batch.length;
+        const planted = await plantSeeds(USER, "zh-vi", bedId, batch);
+        for (const entry of planted!.planted) {
+          await applyFarmReviewHooks(USER, entry.cardId, {
+            intervalDaysBefore: 15,
+            // The first tree crosses at 15 (§10.2), every later one at
+            // 21 — 24 clears both.
+            newIntervalDays: 24,
+            grade: ReviewGrade.GOOD,
+          });
+          graduated += 1;
+        }
+      }
+
+      // Starting gold (40) < 1200 with trees satisfied.
+      expect(await unlockRegion(USER, "zh-vi", "market")).toBe(
+        "insufficient-gold"
+      );
+
+      await rawClient`update farm_worlds set gold = 2000 where user_id = ${USER} and lang_key = 'zh-vi'`;
+
+      const result = await unlockRegion(USER, "zh-vi", "market");
+      expect(result).toMatchObject({ world: { gold: 800 } });
+      const snapshot = result as FarmWorldSnapshot;
+      const market = snapshot.beds.find((bed) => bed.regionKey === "market");
+      expect(market).toBeDefined();
+      expect(market!.plotCount).toBe(12);
+      expect(snapshot.regions[1]).toMatchObject({
+        key: "market",
+        unlocked: true,
+        treesGateMet: true,
+      });
+
+      // Second attempt: already unlocked, nothing charged again.
+      expect(await unlockRegion(USER, "zh-vi", "market")).toBe(
+        "already-unlocked"
+      );
+      const after = await loadFarmWorldDetail(USER, "zh-vi");
+      expect(after!.world.gold).toBe(800);
+      expect(
+        after!.beds.filter((bed) => bed.regionKey === "market")
+      ).toHaveLength(1);
+    }, 240_000);
+  });
 
   test("clearing the farm records a sweep day and pays the streak bonus", async () => {
     await startFarmWorld(USER, ZH);

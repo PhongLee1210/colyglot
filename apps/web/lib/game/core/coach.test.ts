@@ -30,6 +30,7 @@ function snapshot(
     plotCount: plots.length,
     position: 0,
     kind: "garden",
+    regionKey: "homestead",
     plots,
   };
   return {
@@ -43,6 +44,24 @@ function snapshot(
     beds: [bed],
     items: [],
     forest: [],
+    regions: [
+      {
+        key: "homestead",
+        unlocked: true,
+        goldGateMet: true,
+        treesGateMet: true,
+        mastered: false,
+        masteryPct: 0,
+      },
+      {
+        key: "market",
+        unlocked: false,
+        goldGateMet: false,
+        treesGateMet: false,
+        mastered: false,
+        masteryPct: 0,
+      },
+    ],
     streak: 0,
     freshQueue: [],
     dueCount: counts.dueCount ?? 0,

@@ -1,8 +1,17 @@
-import { zh } from "./zh";
+export {
+  REGIONS,
+  getRegion,
+  isRegionKey,
+  masteryOf,
+  regionOfPack,
+  type RegionDef,
+  type RegionKey,
+} from "./regions";
+export { zh } from "./zh";
 
 export {
-  findWord,
   LANG_PACKS,
+  findWord,
   langsFromKey,
   registerLanguage,
   validateContent,
@@ -15,5 +24,5 @@ export type {
   SeedWord,
 } from "./types";
 
-// Importing this module registers every built-in language pack exactly once.
-void zh;
+// Importing this module registers every built-in language pack exactly once
+// (the `export { zh }` above both imports and re-exports it).

@@ -11,6 +11,13 @@ import {
 
 import { ReviewGrade } from "@colyglot/srs";
 
+import {
+  getRegion,
+  LANG_PACKS,
+  masteryOf,
+  REGIONS,
+  type RegionKey,
+} from "@/lib/game/content";
 import type { SeedWord } from "@/lib/game/content/types";
 import {
   applyStreakBonus,
@@ -29,6 +36,7 @@ import type {
   FarmWorldSnapshot,
   ForestTreeView,
   PlotView,
+  RegionStatus,
 } from "@/lib/game/types";
 import { computeStreak, toUtcDayKey } from "@/lib/streak";
 import { levelFromXp } from "@/lib/xp";
@@ -127,6 +135,7 @@ export async function startFarmWorld(
       deckId: gardenDeck.id,
       plotCount: START_PLOTS,
       position: 0,
+      regionKey: "homestead",
     });
 
     // Legacy decks of the same language pair become beds; oldest cards
@@ -162,7 +171,13 @@ export async function startFarmWorld(
       const plotCount = Math.max(START_PLOTS, Math.ceil(deckCards.length / 2));
       const [bed] = await tx
         .insert(farmBeds)
-        .values({ worldId: world.id, deckId: deck.id, plotCount, position })
+        .values({
+          worldId: world.id,
+          deckId: deck.id,
+          plotCount,
+          position,
+          regionKey: "homestead",
+        })
         .returning();
       position += 1;
       if (deckCards.length > 0) {
@@ -281,6 +296,7 @@ export async function loadFarmWorldDetail(
       plotCount: bed.plotCount,
       position: bed.position,
       kind: bed.kind === "greenhouse" ? "greenhouse" : "garden",
+      regionKey: bed.regionKey === "market" ? "market" : "homestead",
       plots,
     };
   });
@@ -317,6 +333,30 @@ export async function loadFarmWorldDetail(
     translation: row.translation,
     intervalDays: row.intervalDays,
   }));
+
+  // Per-region standing (GAME_PLAY §5.3 + §7): unlock gates plus mastery
+  // of the region's topic, measured against the Forest. The tree gate uses
+  // the same counter the unlock checks — never a differently-shaped query.
+  const pack = LANG_PACKS[langKey];
+  const forestHanzi = new Set(forest.map((tree) => tree.hanzi));
+  const forestTrees = await countForestTrees(userId, sourceLang, targetLang);
+  const regions: RegionStatus[] = REGIONS.map((region) => {
+    const regionWords =
+      pack?.packs
+        .filter((seedPack) => region.packKeys.includes(seedPack.key))
+        .flatMap((seedPack) => seedPack.words.map((word) => word.hanzi)) ?? [];
+    const { pct, mastered } = masteryOf(regionWords, forestHanzi);
+    return {
+      key: region.key,
+      unlocked:
+        region.unlockGold === 0 ||
+        bedRows.some(({ bed }) => bed.regionKey === region.key),
+      goldGateMet: world.gold >= region.unlockGold,
+      treesGateMet: forestTrees >= region.unlockTrees,
+      mastered,
+      masteryPct: pct,
+    };
+  });
 
   const items = await getDb()
     .select({ itemKey: farmItems.itemKey, qty: farmItems.qty })
@@ -363,6 +403,7 @@ export async function loadFarmWorldDetail(
     beds,
     forest,
     streak,
+    regions,
     items,
     freshQueue: freshCards.map((card) => ({
       cardId: card.id,
@@ -382,6 +423,120 @@ export type PlantSeedsResult = {
   skipped: string[];
   bedFull: boolean;
 };
+
+// Trees in the Forest for a language pair — the un-grindable half of the
+// region unlock gate (GAME_PLAY §5.3).
+async function countForestTrees(
+  userId: string,
+  sourceLang: string,
+  targetLang: string
+): Promise<number> {
+  const [row] = await getDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(cards)
+    .innerJoin(decks, eq(cards.deckId, decks.id))
+    .leftJoin(farmPlots, eq(farmPlots.cardId, cards.id))
+    .where(
+      and(
+        eq(decks.userId, userId),
+        eq(decks.sourceLang, sourceLang),
+        eq(decks.targetLang, targetLang),
+        isNotNull(cards.graduatedAt),
+        isNull(farmPlots.id)
+      )
+    );
+  return row?.total ?? 0;
+}
+
+export type UnlockRegionResult =
+  | FarmWorldSnapshot
+  | "insufficient-gold"
+  | "trees-gate"
+  | "already-unlocked"
+  | undefined;
+
+// Opens the next region behind its dual gate (GAME_PLAY §5.3): the tree
+// gate reports first because trees cannot be bought — gold alone never
+// unlocks anything. One transaction: atomic gold guard, deck, bed.
+export async function unlockRegion(
+  userId: string,
+  langKey: string,
+  regionKey: RegionKey
+): Promise<UnlockRegionResult> {
+  const world = await getFarmWorld(userId, langKey);
+  if (!world) {
+    return undefined;
+  }
+  const region = getRegion(regionKey);
+  if (region.unlockGold === 0) {
+    // Starter regions come with the farm.
+    return "already-unlocked";
+  }
+
+  const [existing] = await getDb()
+    .select({ id: farmBeds.id })
+    .from(farmBeds)
+    .where(
+      and(eq(farmBeds.worldId, world.id), eq(farmBeds.regionKey, regionKey))
+    )
+    .limit(1);
+  if (existing) {
+    return "already-unlocked";
+  }
+
+  const { sourceLang, targetLang } = langPair(langKey);
+  const forestTrees = await countForestTrees(userId, sourceLang, targetLang);
+  if (forestTrees < region.unlockTrees) {
+    return "trees-gate";
+  }
+
+  const created = await getDb().transaction(async (tx) => {
+    const [paid] = await tx
+      .update(farmWorlds)
+      .set({
+        gold: sql`${farmWorlds.gold} - ${region.unlockGold}`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(farmWorlds.id, world.id),
+          sql`${farmWorlds.gold} >= ${region.unlockGold}`
+        )
+      )
+      .returning();
+    if (!paid) {
+      return false;
+    }
+
+    const [{ maxPosition }] = await tx
+      .select({
+        maxPosition: sql<number>`coalesce(max(${farmBeds.position}), -1)::int`,
+      })
+      .from(farmBeds)
+      .where(eq(farmBeds.worldId, world.id));
+    const [deck] = await tx
+      .insert(decks)
+      .values({
+        userId,
+        name: region.bedName,
+        sourceLang,
+        targetLang,
+      })
+      .returning();
+    await tx.insert(farmBeds).values({
+      worldId: world.id,
+      deckId: deck.id,
+      plotCount: region.startPlots,
+      position: maxPosition + 1,
+      regionKey: region.key,
+    });
+    return true;
+  });
+  if (!created) {
+    return "insufficient-gold";
+  }
+  return loadFarmWorldDetail(userId, langKey);
+}
 
 export async function plantSeeds(
   userId: string,

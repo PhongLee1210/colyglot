@@ -31,7 +31,23 @@ export type BedView = {
   position: number;
   // Greenhouse beds hold demoted words only (GAME_PLAY §5.2).
   kind: "garden" | "greenhouse";
+  // Which region owns this bed (GAME_PLAY §5.3); legacy beds are
+  // homestead.
+  regionKey: "homestead" | "market";
   plots: PlotView[];
+};
+
+// One region's standing in the snapshot (GAME_PLAY §5.3 + §7): the unlock
+// gates plus how close its topic is to mastery (80% of its words living
+// in the Forest).
+export type RegionStatus = {
+  key: "homestead" | "market";
+  unlocked: boolean;
+  goldGateMet: boolean;
+  treesGateMet: boolean;
+  mastered: boolean;
+  /** 0–100: share of the region's words that are Forest trees. */
+  masteryPct: number;
 };
 
 // A graduated word living in the Forest (GAME_PLAY §5.1) — derived from
@@ -87,6 +103,8 @@ export type FarmWorldSnapshot = {
   forest: ForestTreeView[];
   // Consecutive days every ripe crop was swept (GAME_PLAY §6.4).
   streak: number;
+  // Per-region unlock gates and mastery (GAME_PLAY §5.3/§7), REGIONS order.
+  regions: RegionStatus[];
   items: { itemKey: string; qty: number }[];
   freshQueue: FreshCardView[];
   dueCount: number;

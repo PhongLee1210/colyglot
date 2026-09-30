@@ -26,6 +26,7 @@ function fixture(): FarmWorldSnapshot {
         plotCount: 6,
         position: 0,
         kind: "garden",
+        regionKey: "homestead",
         plots: [
           {
             slotIndex: 0,
@@ -53,6 +54,24 @@ function fixture(): FarmWorldSnapshot {
     items: [],
     forest: [],
     streak: 0,
+    regions: [
+      {
+        key: "homestead",
+        unlocked: true,
+        goldGateMet: true,
+        treesGateMet: true,
+        mastered: false,
+        masteryPct: 0,
+      },
+      {
+        key: "market",
+        unlocked: false,
+        goldGateMet: false,
+        treesGateMet: false,
+        mastered: false,
+        masteryPct: 0,
+      },
+    ],
     freshQueue: [],
     dueCount: 0,
     freshCount: 1,

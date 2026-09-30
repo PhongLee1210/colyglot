@@ -12,6 +12,7 @@ import {
   loadFarmWorldDetail,
   plantSeeds,
   startFarmWorld,
+  unlockRegion,
   type ClaimHarvestResult,
   type PlantSeedsResult,
 } from "@/lib/db/repositories/farm";
@@ -19,7 +20,7 @@ import {
   getDueQueueForLang,
   openStudySession,
 } from "@/lib/db/repositories/study";
-import { LANG_PACKS, langsFromKey } from "@/lib/game/content";
+import { isRegionKey, LANG_PACKS, langsFromKey } from "@/lib/game/content";
 import type { SeedWord } from "@/lib/game/content/types";
 import type { FarmWorldSnapshot, HarvestCard } from "@/lib/game/types";
 import type { ActionResult } from "./types";
@@ -185,5 +186,36 @@ export async function switchWorldAction(
     return { ok: true, data: snapshot };
   } catch {
     return { ok: false, error: "Could not load farm" };
+  }
+}
+
+// Opens the next region behind its dual gate (GAME_PLAY §5.3); returns the
+// refreshed snapshot so the client hydrates without a navigation.
+export async function unlockRegionAction(
+  langKey: string,
+  regionKey: string
+): Promise<ActionResult<FarmWorldSnapshot>> {
+  const userId = await requireUserId();
+  if (!LANG_PACKS[langKey] || !isRegionKey(regionKey)) {
+    return { ok: false, error: "Unknown region" };
+  }
+  try {
+    const result = await unlockRegion(userId, langKey, regionKey);
+    if (result === undefined) {
+      return { ok: false, error: "Start this farm first" };
+    }
+    if (result === "already-unlocked") {
+      return { ok: false, error: "Region already unlocked" };
+    }
+    if (result === "trees-gate") {
+      return { ok: false, error: "Not enough forest trees yet" };
+    }
+    if (result === "insufficient-gold") {
+      return { ok: false, error: "Not enough gold" };
+    }
+    revalidatePath("/");
+    return { ok: true, data: result };
+  } catch (error) {
+    return { ok: false, error: toMessage(error) };
   }
 }
