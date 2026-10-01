@@ -367,6 +367,13 @@ export async function loadFarmWorldDetail(
     .from(farmItems)
     .where(eq(farmItems.worldId, world.id));
 
+  // The mastery plaque (GAME_PLAY §7): a mastered region's stone is
+  // granted exactly once and stays earned. Freshly landed plaques join
+  // the same snapshot they were earned in.
+  for (const granted of await grantMasteryPlaques(world.id, regions)) {
+    items.push({ itemKey: granted, qty: 1 });
+  }
+
   const freshCards = await listFreshForLang(
     userId,
     sourceLang,
@@ -1028,6 +1035,27 @@ async function grantStreakWreathOnce(
     .onConflictDoNothing()
     .returning({ id: farmItems.id });
   return inserted.length > 0;
+}
+
+// Region mastery stones (GAME_PLAY §7): every mastered region earns its
+// plaque exactly once. Returns only the item keys that actually landed
+// in this call — already-owned plaques stay quiet.
+async function grantMasteryPlaques(
+  worldId: string,
+  regions: RegionStatus[]
+): Promise<string[]> {
+  const granted: string[] = [];
+  for (const region of regions) {
+    if (!region.mastered) continue;
+    const itemKey = `plaque_${region.key}`;
+    const inserted = await getDb()
+      .insert(farmItems)
+      .values({ worldId, itemKey, qty: 1 })
+      .onConflictDoNothing()
+      .returning({ id: farmItems.id });
+    if (inserted.length > 0) granted.push(itemKey);
+  }
+  return granted;
 }
 
 export type ClaimHarvestResult = {

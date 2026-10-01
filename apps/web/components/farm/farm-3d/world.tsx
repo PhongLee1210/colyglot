@@ -269,7 +269,12 @@ export function Farm3DWorld({
         <FarmCameraControls farm={farm} />
         <Sun radius={layout.islandRadius} golden={goldenSky} />
         <Terrain3D radius={layout.islandRadius} materials={materials} />
-        <FarmBeds3D beds={snapshot.beds} farm={farm} materials={materials} />
+        <FarmBeds3D
+          beds={snapshot.beds}
+          farm={farm}
+          materials={materials}
+          items={snapshot.items.map((item) => item.itemKey)}
+        />
         <Plots3D
           beds={snapshot.beds}
           farm={farm}

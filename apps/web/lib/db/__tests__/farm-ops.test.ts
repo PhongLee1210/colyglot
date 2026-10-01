@@ -12,6 +12,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 
+import { LANG_PACKS } from "@/lib/game/content";
 import type { SeedWord } from "@/lib/game/content/types";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
 import { createCard, createDeck } from "../repositories/content";
@@ -532,6 +533,58 @@ describeIntegration("farm bed operations and harvest claim", () => {
         after!.beds.filter((bed) => bed.regionKey === "market")
       ).toHaveLength(1);
     }, 240_000);
+
+    test("mastering a region grants its stone plaque once (GAME_PLAY §7)", async () => {
+      await startFarmWorld(USER, ZH);
+      const bedId = await gardenBedId();
+      const greetings =
+        LANG_PACKS[ZH.langKey].packs.find((pack) => pack.key === "greetings")
+          ?.words ?? [];
+      // 80% of the greetings topic grown into trees masters homestead.
+      const needed = Math.ceil(greetings.length * 0.8);
+      let graduated = 0;
+      let cursor = 0;
+      while (graduated < needed) {
+        const batch = greetings.slice(cursor, cursor + 6);
+        cursor += batch.length;
+        const planted = await plantSeeds(USER, "zh-vi", bedId, batch);
+        for (const entry of planted!.planted) {
+          // The committed review that pushes a word to tree age always
+          // writes its schedule first — the Forest view joins on it.
+          await upsertCardSchedule(USER, entry.cardId, {
+            easeFactor: 2.5,
+            intervalDays: 24,
+            dueAt: new Date(Date.now() + 24 * 86_400_000),
+            reviewCount: 5,
+            consecutiveCorrect: 5,
+            lapses: 0,
+            lastReviewedAt: new Date(),
+          });
+          await applyFarmReviewHooks(USER, entry.cardId, {
+            intervalDaysBefore: 15,
+            newIntervalDays: 24,
+            grade: ReviewGrade.GOOD,
+          });
+          graduated += 1;
+        }
+      }
+
+      const first = await loadFarmWorldDetail(USER, "zh-vi");
+      const homestead = first!.regions.find(
+        (region) => region.key === "homestead"
+      );
+      expect(homestead).toMatchObject({ mastered: true });
+      const plaque = first!.items.find(
+        (item) => item.itemKey === "plaque_homestead"
+      );
+      expect(plaque?.qty).toBe(1);
+
+      // The plaque is earned history: reloading never mints a second.
+      const second = await loadFarmWorldDetail(USER, "zh-vi");
+      expect(
+        second!.items.filter((item) => item.itemKey === "plaque_homestead")
+      ).toHaveLength(1);
+    }, 120_000);
   });
 
   test("clearing the farm records a sweep day and pays the streak bonus", async () => {

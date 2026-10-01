@@ -16,10 +16,13 @@ export function FarmBeds3D({
   beds,
   farm,
   materials,
+  items,
 }: {
   beds: BedView[];
   farm: FarmExtents;
   materials: FarmMaterials;
+  /** Owned shop/memento item keys — a region's mastery plaque is one. */
+  items: readonly string[];
 }) {
   const postGeometry = useMemo(() => new BoxGeometry(...POST_SIZE), []);
   const boardGeometry = useMemo(() => new BoxGeometry(...BOARD_SIZE), []);
@@ -34,6 +37,7 @@ export function FarmBeds3D({
           materials={materials}
           postGeometry={postGeometry}
           boardGeometry={boardGeometry}
+          plaqueOwned={items.includes(`plaque_${bed.regionKey}`)}
         />
       ))}
     </group>
@@ -46,12 +50,14 @@ function BedPlatform({
   materials,
   postGeometry,
   boardGeometry,
+  plaqueOwned,
 }: {
   bed: BedView;
   layout: BedLayout;
   materials: FarmMaterials;
   postGeometry: BoxGeometry;
   boardGeometry: BoxGeometry;
+  plaqueOwned: boolean;
 }) {
   const signPosition: [number, number, number] = [
     layout.origin[0] + 0.1,
@@ -93,7 +99,44 @@ function BedPlatform({
             {bed.name}
           </span>
         </Html>
+        {plaqueOwned ? <MasteryPlaque materials={materials} /> : null}
       </group>
+    </group>
+  );
+}
+
+// The region's mastery stone (GAME_PLAY §7): a small stele with a gold
+// star, set beside the bed sign — earned once, never taken away.
+function MasteryPlaque({ materials }: { materials: FarmMaterials }) {
+  return (
+    <group position={[1.55, 0, 0.12]} rotation-y={-0.08}>
+      <mesh
+        position={[0, 0.06, 0]}
+        material={materials.stoneRim}
+        castShadow
+        receiveShadow
+      >
+        <boxGeometry args={[0.72, 0.12, 0.4]} />
+      </mesh>
+      <mesh position={[0, 0.56, 0]} material={materials.stoneRim} castShadow>
+        <boxGeometry args={[0.52, 1.0, 0.16]} />
+      </mesh>
+      <mesh position={[0, 0.58, 0.1]}>
+        <boxGeometry args={[0.3, 0.3, 0.04]} />
+        <meshStandardMaterial
+          color="#e8b64c"
+          emissive="#c98f1d"
+          emissiveIntensity={0.55}
+        />
+      </mesh>
+      <mesh position={[0, 1.22, 0]}>
+        <octahedronGeometry args={[0.14]} />
+        <meshStandardMaterial
+          color="#e8b64c"
+          emissive="#c98f1d"
+          emissiveIntensity={0.6}
+        />
+      </mesh>
     </group>
   );
 }

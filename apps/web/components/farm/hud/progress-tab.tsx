@@ -1,5 +1,6 @@
 "use client";
 
+import { getRegion } from "@/lib/game/content/regions";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
 import { XP_PER_LEVEL, xpIntoLevel } from "@/lib/xp";
 
@@ -20,6 +21,7 @@ export function ProgressTab({
     (sum, bed) => sum + bed.plots.filter((plot) => plot.cardId).length,
     0
   );
+  const plaques = new Set(snapshot.items.map((item) => item.itemKey));
 
   return (
     <div className="flex flex-col gap-3">
@@ -62,6 +64,43 @@ export function ProgressTab({
           <ProgressStat label="Plots" value={`${growing} / ${plotCount}`} />
           <ProgressStat label="Beds" value={snapshot.beds.length} />
         </dl>
+      </section>
+
+      <section className={panelCardClass}>
+        <h3 className="font-display text-base font-extrabold">Regions</h3>
+        <ul className="mt-2 flex flex-col gap-2.5">
+          {snapshot.regions.map((region) => {
+            const def = getRegion(region.key);
+            const plaque = plaques.has(`plaque_${region.key}`);
+            return (
+              <li key={region.key} data-testid={`region-${region.key}`}>
+                <div className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="font-bold">
+                    <span aria-hidden="true">{def.icon}</span> {def.name}{" "}
+                    {plaque ? (
+                      <span title="Mastery plaque earned">🏆</span>
+                    ) : null}
+                  </span>
+                  <span className="text-xs font-bold text-fg-muted">
+                    {region.unlocked
+                      ? `${region.masteryPct}% mastery`
+                      : "Locked"}
+                  </span>
+                </div>
+                <span className="mt-1 block h-2 overflow-hidden rounded-full bg-black/15">
+                  <span
+                    className="block h-full rounded-full bg-amber-400 transition-[width] duration-500"
+                    style={{ width: `${region.masteryPct}%` }}
+                  />
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-2 text-xs text-fg-muted">
+          Grow 80% of a region&apos;s words into forest trees to earn its stone
+          plaque.
+        </p>
       </section>
 
       <section className={panelCardClass}>
