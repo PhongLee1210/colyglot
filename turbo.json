@@ -38,12 +38,18 @@
     },
     "test": {
       "dependsOn": ["^test"],
-      "env": ["DATABASE_URL"]
+      "env": ["DATABASE_URL", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
     },
     "test:e2e": {
       "dependsOn": ["build", "test"],
       "cache": false,
-      "env": ["DATABASE_URL", "E2E_SIGNIN_TOKEN"]
+      "env": [
+        "DATABASE_URL",
+        "E2E_SIGNIN_TOKEN",
+        "SUPABASE_URL",
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY"
+      ]
     },
     "start": {
       "dependsOn": ["build"],

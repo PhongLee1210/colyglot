@@ -1,11 +1,12 @@
 import "server-only";
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-const TAKES_DIR = path.join(process.cwd(), ".data", "takes");
+const TAKES_BUCKET = "takes";
 
 const MAX_TAKE_BYTES = 2 * 1024 * 1024;
+
+const TAKE_CONTENT_TYPE = "audio/webm";
 
 export type StoredTake = {
   storagePath: string;
@@ -15,6 +16,10 @@ export type StoredTake = {
 
 export function takeStoragePath(userId: string, cardId: string): string {
   return `takes/${userId}/${cardId}.webm`;
+}
+
+function objectPath(userId: string, cardId: string): string {
+  return `${userId}/${cardId}.webm`;
 }
 
 export async function saveTake(
@@ -28,9 +33,15 @@ export async function saveTake(
   if (bytes.byteLength > MAX_TAKE_BYTES) {
     throw new Error("Recording is too large");
   }
-  await mkdir(path.join(TAKES_DIR, userId), { recursive: true });
-  const filePath = path.join(TAKES_DIR, userId, `${cardId}.webm`);
-  await writeFile(filePath, bytes);
+  const { error } = await getSupabaseAdmin()
+    .storage.from(TAKES_BUCKET)
+    .upload(objectPath(userId, cardId), bytes, {
+      contentType: TAKE_CONTENT_TYPE,
+      upsert: true,
+    });
+  if (error) {
+    throw new Error(`Take upload failed: ${error.message}`);
+  }
   return takeStoragePath(userId, cardId);
 }
 
@@ -38,15 +49,22 @@ export async function readTake(
   userId: string,
   cardId: string
 ): Promise<StoredTake | null> {
-  const filePath = path.join(TAKES_DIR, userId, `${cardId}.webm`);
-  try {
-    const bytes = await readFile(filePath);
-    return {
-      storagePath: takeStoragePath(userId, cardId),
-      bytes,
-      contentType: "audio/webm",
-    };
-  } catch {
-    return null;
+  const { data, error } = await getSupabaseAdmin()
+    .storage.from(TAKES_BUCKET)
+    .download(objectPath(userId, cardId));
+  if (error) {
+    if (
+      typeof error === "object" &&
+      "statusCode" in error &&
+      error.statusCode === "404"
+    ) {
+      return null;
+    }
+    throw new Error(`Take download failed: ${error.message}`);
   }
+  return {
+    storagePath: takeStoragePath(userId, cardId),
+    bytes: Buffer.from(await data.arrayBuffer()),
+    contentType: TAKE_CONTENT_TYPE,
+  };
 }

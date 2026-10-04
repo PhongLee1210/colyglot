@@ -50,6 +50,13 @@
       "when": 1790777770344,
       "tag": "0006_panoramic_mariko_yashida",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791000802624,
+      "tag": "0007_takes_bucket",
+      "breakpoints": true
     }
   ]
 }

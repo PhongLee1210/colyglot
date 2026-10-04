@@ -1,0 +1,30 @@
+name: Migrate production database
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: drizzle-kit migrate (prod)
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run db:migrate
+        if: ${{ env.DATABASE_URL != '' }}
+        working-directory: apps/web
+
+      - name: Missing PROD_DATABASE_URL
+        if: ${{ env.DATABASE_URL == '' }}
+        run: |
+          echo "PROD_DATABASE_URL secret is not set — add it in Settings → Secrets → Actions"
+          exit 1

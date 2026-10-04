@@ -24,7 +24,7 @@ apps/web/                # Next.js app (package name: "web")
   lib/db/                # Drizzle schema + server-only repositories
   lib/db/repositories/   # the only sanctioned data-access surface
   lib/queries/           # server-only page/view data loaders
-  lib/storage/           # take-storage adapter (local now, Supabase Storage later)
+  lib/storage/           # take storage adapter (Supabase Storage, private takes bucket — server-only)
   lib/game/              # client-safe farm content registry, core economy, art, store
   drizzle/               # committed SQL migrations
 packages/srs/            # @colyglot/srs — pure SM-2 engine + queue priority (canonical shared constants)
@@ -65,6 +65,7 @@ bun run db:studio         # open Drizzle Studio
 - Shared tool versions (`typescript`, `eslint`, `@types/bun`) are pinned once in the root `catalog` — reference with `"catalog:"`, never hardcode versions per workspace
 - New shared code goes in `packages/*` once more than one app/package needs it — don't create packages speculatively
 - `test` and `test:e2e` both run against the shared dev database (integration tests truncate tables; E2E resets its user) — `test:e2e` therefore `dependsOn: ["test"]`; any new DB-touching task must join this serialization in `turbo.json`
+- CI runs `bun run ci` on every PR and push to main (`.github/workflows/ci.yml`) using dev-database secrets; prod migrations run via `bun run db:migrate` (`.github/workflows/migrate-prod.yml`, manual trigger, `PROD_DATABASE_URL` secret)
 - Keep `turbo.json` task `outputs`/`cache` settings in sync when adding build-producing scripts to a package
 
 ### Validation Hierarchy
