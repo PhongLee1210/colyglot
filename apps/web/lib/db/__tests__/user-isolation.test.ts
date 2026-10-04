@@ -71,7 +71,7 @@ describeIntegration("user isolation", () => {
   });
 
   beforeEach(async () => {
-    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, deck_progress cascade`;
+    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, deck_progress, user_accounts cascade`;
   });
 
   test("user B never sees user A's decks and cards", async () => {

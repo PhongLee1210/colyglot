@@ -44,7 +44,7 @@ describeIntegration("language-scoped study queries", () => {
   });
 
   beforeEach(async () => {
-    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, deck_progress, farm_worlds cascade`;
+    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, deck_progress, farm_worlds, farm_sweep_days, user_accounts cascade`;
   });
 
   test("queues are scoped to the language pair", async () => {

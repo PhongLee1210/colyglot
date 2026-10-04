@@ -34,11 +34,15 @@ export default defineConfig({
       use: {
         storageState: "e2e/.auth/user.json",
       },
-      testIgnore: [/auth-setup\.ts/, /auth\.spec\.ts/],
+      testIgnore: [
+        /auth-setup\.ts/,
+        /auth\.spec\.ts/,
+        /early-access\.spec\.ts/,
+      ],
     },
     {
       name: "anonymous",
-      testMatch: /auth\.spec\.ts/,
+      testMatch: /auth\.spec\.ts|early-access\.spec\.ts/,
     },
   ],
 });

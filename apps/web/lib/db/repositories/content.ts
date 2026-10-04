@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import type { CardCollocation, CardExample } from "@/lib/game/content/types";
 import { getDb } from "../index";
@@ -168,6 +168,16 @@ export async function listCards(
     .from(cards)
     .where(eq(cards.deckId, deckId))
     .orderBy(asc(cards.createdAt));
+}
+
+// Total owned words across every deck — the EARLY_ACCESS quota numerator.
+export async function countCardsForUser(userId: string): Promise<number> {
+  const [row] = await getDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(cards)
+    .innerJoin(decks, eq(cards.deckId, decks.id))
+    .where(eq(decks.userId, userId));
+  return row?.total ?? 0;
 }
 
 export async function saveCardRecording(

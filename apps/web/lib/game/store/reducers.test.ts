@@ -18,6 +18,7 @@ function fixture(): FarmWorldSnapshot {
       gold: 40,
       stats: { planted: 1, harvested: 0, goldEarned: 0 },
     },
+    access: { tier: "STANDARD", cardsUsed: 1, cardLimit: null },
     beds: [
       {
         id: "b1",

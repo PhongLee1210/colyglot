@@ -76,7 +76,7 @@ describeIntegration("farm bed operations and harvest claim", () => {
   });
 
   beforeEach(async () => {
-    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, deck_progress, farm_worlds, farm_sweep_days cascade`;
+    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, deck_progress, farm_worlds, farm_sweep_days, user_accounts cascade`;
   });
 
   async function gardenBedId(): Promise<string> {
@@ -89,17 +89,23 @@ describeIntegration("farm bed operations and harvest claim", () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
 
-    const result = await plantSeeds(USER, "zh-vi", bedId, [
-      word("你好"),
-      word("谢谢"),
-    ]);
+    const result = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("你好"), word("谢谢")],
+      null
+    );
     expect(result!.planted.map((p) => p.hanzi)).toEqual(["你好", "谢谢"]);
     expect(result!.skipped).toEqual([]);
 
-    const dup = await plantSeeds(USER, "zh-vi", bedId, [
-      word("你好"),
-      word("再见"),
-    ]);
+    const dup = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("你好"), word("再见")],
+      null
+    );
     expect(dup!.planted.map((p) => p.hanzi)).toEqual(["再见"]);
     expect(dup!.skipped).toEqual(["你好"]);
   }, 15_000);
@@ -111,9 +117,10 @@ describeIntegration("farm bed operations and harvest claim", () => {
       USER,
       "zh-vi",
       bedId,
-      ["一", "二", "三", "四", "五", "六"].map(word)
+      ["一", "二", "三", "四", "五", "六"].map(word),
+      null
     );
-    const result = await plantSeeds(USER, "zh-vi", bedId, [word("七")]);
+    const result = await plantSeeds(USER, "zh-vi", bedId, [word("七")], null);
     expect(result!.bedFull).toBe(true);
     expect(result!.planted).toEqual([]);
   }, 15_000);
@@ -122,7 +129,7 @@ describeIntegration("farm bed operations and harvest claim", () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
     expect(
-      await plantSeeds("other-user", "zh-vi", bedId, [word("你好")])
+      await plantSeeds("other-user", "zh-vi", bedId, [word("你好")], null)
     ).toBeUndefined();
   });
 
@@ -140,10 +147,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
   test("claimSessionHarvest pays per-grade gold once, scoped to language", async () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
-    const planted = await plantSeeds(USER, "zh-vi", bedId, [
-      word("你好"),
-      word("谢谢"),
-    ]);
+    const planted = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("你好"), word("谢谢")],
+      null
+    );
     const zhCardId = planted!.planted[0].cardId;
 
     const enDeck = await createDeck(USER, {
@@ -194,10 +204,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
   test("same-session requeues are learning steps: gold pays once per card", async () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
-    const planted = await plantSeeds(USER, "zh-vi", bedId, [
-      word("你好"),
-      word("谢谢"),
-    ]);
+    const planted = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("你好"), word("谢谢")],
+      null
+    );
     const lapsedCard = planted!.planted[0].cardId;
     const steadyCard = planted!.planted[1].cardId;
 
@@ -232,7 +245,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
   test("a word crossing 21 days graduates: plot freed, forest gains a tree", async () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
-    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("你好")]);
+    const planted = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("你好")],
+      null
+    );
     const cardId = planted!.planted[0].cardId;
 
     // The committed review pushed the interval past the graduation mark.
@@ -269,7 +288,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
   test("a lapsed forest word demotes back into a free plot", async () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
-    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("你好")]);
+    const planted = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("你好")],
+      null
+    );
     const cardId = planted!.planted[0].cardId;
 
     // Graduate first, then the schedule resets on a FORGOT review.
@@ -299,7 +324,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
     const hanzi = ["一", "二", "三", "四", "五", "六"];
-    const planted = await plantSeeds(USER, "zh-vi", bedId, hanzi.map(word));
+    const planted = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      hanzi.map(word),
+      null
+    );
     const cardOf = (index: number) => planted!.planted[index].cardId;
 
     // Graduate every word; the garden empties.
@@ -311,14 +342,20 @@ describeIntegration("farm bed operations and harvest claim", () => {
       });
     }
     // Refill the garden with new plantings, leaving no free plot.
-    await plantSeeds(USER, "zh-vi", bedId, [
-      word("九"),
-      word("十"),
-      word("十一"),
-      word("十二"),
-      word("十三"),
-      word("十四"),
-    ]);
+    await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [
+        word("九"),
+        word("十"),
+        word("十一"),
+        word("十二"),
+        word("十三"),
+        word("十四"),
+      ],
+      null
+    );
 
     const first = await applyFarmReviewHooks(USER, cardOf(0), {
       intervalDaysBefore: 24,
@@ -360,10 +397,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
   test("the first tree graduates at 15 days exactly once (GAME_PLAY §10.2)", async () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
-    const planted = await plantSeeds(USER, "zh-vi", bedId, [
-      word("一"),
-      word("二"),
-    ]);
+    const planted = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("一"), word("二")],
+      null
+    );
 
     // First word of a virgin world: 15 days is enough.
     const first = await applyFarmReviewHooks(USER, planted!.planted[0].cardId, {
@@ -411,7 +451,7 @@ describeIntegration("farm bed operations and harvest claim", () => {
   test("FORGOT on a 15-day forest tree demotes on the marker, not the interval", async () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
-    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("一")]);
+    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("一")], null);
     const cardId = planted!.planted[0].cardId;
 
     await applyFarmReviewHooks(USER, cardId, {
@@ -491,7 +531,7 @@ describeIntegration("farm bed operations and harvest claim", () => {
       while (graduated < 25) {
         const batch = hanzi.slice(cursor, cursor + 6).map(word);
         cursor += batch.length;
-        const planted = await plantSeeds(USER, "zh-vi", bedId, batch);
+        const planted = await plantSeeds(USER, "zh-vi", bedId, batch, null);
         for (const entry of planted!.planted) {
           await applyFarmReviewHooks(USER, entry.cardId, {
             intervalDaysBefore: 15,
@@ -547,7 +587,7 @@ describeIntegration("farm bed operations and harvest claim", () => {
       while (graduated < needed) {
         const batch = greetings.slice(cursor, cursor + 6);
         cursor += batch.length;
-        const planted = await plantSeeds(USER, "zh-vi", bedId, batch);
+        const planted = await plantSeeds(USER, "zh-vi", bedId, batch, null);
         for (const entry of planted!.planted) {
           // The committed review that pushes a word to tree age always
           // writes its schedule first — the Forest view joins on it.
@@ -590,7 +630,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
   test("clearing the farm records a sweep day and pays the streak bonus", async () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
-    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("你好")]);
+    const planted = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("你好")],
+      null
+    );
     const cardId = planted!.planted[0].cardId;
 
     // The review committed and moved the word out of the due queue.
@@ -631,7 +677,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
   test("a farm with nothing due keeps the streak alive on load", async () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
-    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("你好")]);
+    const planted = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("你好")],
+      null
+    );
     // The word is growing with a future due date: nothing is ripe.
     await upsertCardSchedule(USER, planted!.planted[0].cardId, {
       easeFactor: 2.5,
@@ -652,7 +704,13 @@ describeIntegration("farm bed operations and harvest claim", () => {
   test("a 7-day-ever sweep run grants the streak wreath once (GAME_PLAY §6.4)", async () => {
     await startFarmWorld(USER, ZH);
     const bedId = await gardenBedId();
-    const planted = await plantSeeds(USER, "zh-vi", bedId, [word("谢谢")]);
+    const planted = await plantSeeds(
+      USER,
+      "zh-vi",
+      bedId,
+      [word("谢谢")],
+      null
+    );
     await upsertCardSchedule(USER, planted!.planted[0].cardId, {
       easeFactor: 2.5,
       intervalDays: 6,

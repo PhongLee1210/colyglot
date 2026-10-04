@@ -95,7 +95,7 @@ describeIntegration("data layer round-trip", () => {
   });
 
   beforeEach(async () => {
-    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings cascade`;
+    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, user_accounts cascade`;
   });
 
   test("createDeck applies language-pair defaults and the owner", async () => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { safeNextPath } from "@/lib/auth/next-path";
 import { createSupabaseServerClient } from "@/lib/auth/server-client";
+import { promoteToStandard } from "@/lib/db/repositories/user-account";
 import { resetUserData } from "@/lib/db/repositories/user-data";
 
 const TEST_EMAIL_DOMAIN = "@colyglot.test";
@@ -32,5 +33,8 @@ export async function GET(request: Request) {
   if (searchParams.get("reset") === "1") {
     await resetUserData(data.user.id);
   }
+  // Every auth entry point guarantees a STANDARD account row for this
+  // E2E-only user; resetUserData deliberately leaves user_accounts alone.
+  await promoteToStandard(data.user.id);
   return NextResponse.redirect(new URL(next, origin));
 }

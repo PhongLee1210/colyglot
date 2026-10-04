@@ -1,4 +1,5 @@
 import type { CardExample } from "@/lib/game/content/types";
+import type { UserTier } from "@/lib/game/core/access";
 
 // One sweep covers at most this many crops; the badge honestly shows
 // "50+" past it so the player knows a second sweep is waiting.
@@ -10,6 +11,14 @@ export type FarmStats = {
   goldEarned: number;
   /** Set once the world's first tree graduated (15d exception used up). */
   firstGraduation?: boolean;
+};
+
+// The quota the HUD shows: tier plus cards owned against the cap. A null
+// cardLimit means uncapped (STANDARD).
+export type FarmAccess = {
+  tier: UserTier;
+  cardsUsed: number;
+  cardLimit: number | null;
 };
 
 export type PlotView = {
@@ -105,6 +114,8 @@ export type FarmWorldSnapshot = {
     gold: number;
     stats: FarmStats;
   };
+  // Player tier and card quota (EARLY_ACCESS caps at 50 words).
+  access: FarmAccess;
   beds: BedView[];
   forest: ForestTreeView[];
   // Consecutive days every ripe crop was swept (GAME_PLAY §6.4).

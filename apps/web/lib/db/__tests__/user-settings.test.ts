@@ -44,7 +44,7 @@ describeIntegration("user settings repository", () => {
   });
 
   beforeEach(async () => {
-    await rawClient`truncate table user_settings`;
+    await rawClient`truncate table user_settings, user_accounts`;
   });
 
   test("returns defaults when the user has no row", async () => {

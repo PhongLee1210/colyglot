@@ -1,18 +1,21 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
-import { getUserId } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/session";
 import {
   getSweepStreak,
   listFarmWorlds,
   loadFarmWorldDetail,
 } from "@/lib/db/repositories/farm";
+import { getUserTier } from "@/lib/db/repositories/user-account";
 import {
   getMusicSettings,
   getUiLang,
 } from "@/lib/db/repositories/user-settings";
 import { LANG_PACKS } from "@/lib/game/content";
+import { DEFAULT_MUSIC_VOLUME } from "@/lib/game/music";
 import type { FarmWorldCard } from "@/lib/game/types";
+import { DEFAULT_UI_LANG } from "@/lib/i18n/ui-langs";
 
 import { FarmGame } from "./farm-game";
 
@@ -20,19 +23,58 @@ const FUTURE_LANGS: { langKey: string; name: string }[] = [
   { langKey: "en-vi", name: "English · Việt" },
 ];
 
+function buildWorldCards(
+  overviews: Awaited<ReturnType<typeof listFarmWorlds>>
+): FarmWorldCard[] {
+  return Object.values(LANG_PACKS).map((pack) => {
+    const overview = overviews.find(
+      (entry) => entry.world.langKey === pack.key
+    );
+    return {
+      langKey: pack.key,
+      name: pack.name,
+      flag: pack.flag,
+      tierName: pack.tiers[overview?.world.tier ?? 0].name,
+      gold: overview?.world.gold ?? 0,
+      dueCount: overview?.dueCount ?? 0,
+      started: Boolean(overview),
+    };
+  });
+}
+
 export async function FarmGameScreen({ langKey }: { langKey?: string }) {
   await connection();
-  const userId = await getUserId();
-  if (!userId) {
-    redirect("/sign-in");
-  }
+  const user = await getCurrentUser();
   if (langKey && !LANG_PACKS[langKey]) {
     redirect("/");
   }
-  const [overviews, musicSettings, uiLang] = await Promise.all([
+
+  if (!user) {
+    const firstLangKey = Object.values(LANG_PACKS)[0]?.key;
+    if (!firstLangKey) {
+      return null;
+    }
+    return (
+      <FarmGame
+        langKey={firstLangKey}
+        initialSnapshot={null}
+        worlds={buildWorldCards([])}
+        futureLangs={FUTURE_LANGS}
+        streak={0}
+        skipTitle={false}
+        musicSettings={{ volume: DEFAULT_MUSIC_VOLUME, muted: false }}
+        initialUiLang={DEFAULT_UI_LANG}
+        accessTier="none"
+      />
+    );
+  }
+
+  const userId = user.id;
+  const [overviews, musicSettings, uiLang, tier] = await Promise.all([
     listFarmWorlds(userId),
     getMusicSettings(userId),
     getUiLang(userId),
+    getUserTier(userId),
   ]);
 
   // The game boots straight into a world: an explicit ?lang wins, then the
@@ -50,26 +92,11 @@ export async function FarmGameScreen({ langKey }: { langKey?: string }) {
     getSweepStreak(userId, effectiveLangKey),
   ]);
 
-  const worlds: FarmWorldCard[] = Object.values(LANG_PACKS).map((pack) => {
-    const overview = overviews.find(
-      (entry) => entry.world.langKey === pack.key
-    );
-    return {
-      langKey: pack.key,
-      name: pack.name,
-      flag: pack.flag,
-      tierName: pack.tiers[overview?.world.tier ?? 0].name,
-      gold: overview?.world.gold ?? 0,
-      dueCount: overview?.dueCount ?? 0,
-      started: Boolean(overview),
-    };
-  });
-
   return (
     <FarmGame
       langKey={effectiveLangKey}
       initialSnapshot={snapshot ?? null}
-      worlds={worlds}
+      worlds={buildWorldCards(overviews)}
       futureLangs={FUTURE_LANGS}
       streak={streak}
       skipTitle={Boolean(langKey && snapshot)}
@@ -78,6 +105,7 @@ export async function FarmGameScreen({ langKey }: { langKey?: string }) {
         muted: musicSettings.musicMuted,
       }}
       initialUiLang={uiLang}
+      accessTier={tier}
     />
   );
 }

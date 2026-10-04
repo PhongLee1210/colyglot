@@ -41,6 +41,7 @@ function snapshot(
       gold: 40,
       stats: { planted: 0, harvested: 0, goldEarned: 0 },
     },
+    access: { tier: "STANDARD", cardsUsed: 0, cardLimit: null },
     beds: [bed],
     items: [],
     forest: [],

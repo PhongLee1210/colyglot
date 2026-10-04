@@ -12,8 +12,7 @@
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio",
-    "db:seed:dev": "bun --env-file=.env scripts/seed-dev-user.ts"
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@colyglot/srs": "workspace:*",

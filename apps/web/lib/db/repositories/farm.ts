@@ -19,6 +19,7 @@ import {
   type RegionKey,
 } from "@/lib/game/content";
 import type { SeedWord } from "@/lib/game/content/types";
+import { EARLY_ACCESS_CARD_LIMIT } from "@/lib/game/core/access";
 import {
   applyStreakBonus,
   expandBedCost,
@@ -56,8 +57,10 @@ import {
   farmSweepDays,
   farmWorlds,
   reviewLogs,
+  userAccounts,
   type FarmWorld,
 } from "../schema";
+import { countCardsForUser } from "./content";
 import {
   countDueForLang,
   countFreshForLang,
@@ -65,6 +68,7 @@ import {
   getStudySession,
   listFreshForLang,
 } from "./study";
+import { getUserTier } from "./user-account";
 
 export type StartFarmWorldInput = {
   langKey: string;
@@ -409,6 +413,8 @@ export async function loadFarmWorldDetail(
       )
     );
   const xp = xpRow?.xp ?? 0;
+  const tier = await getUserTier(userId);
+  const cardsUsed = await countCardsForUser(userId);
 
   return {
     world: {
@@ -417,6 +423,11 @@ export async function loadFarmWorldDetail(
       tier: world.tier,
       gold: world.gold,
       stats: world.stats as FarmStats,
+    },
+    access: {
+      tier,
+      cardsUsed,
+      cardLimit: tier === "EARLY_ACCESS" ? EARLY_ACCESS_CARD_LIMIT : null,
     },
     beds,
     forest,
@@ -441,6 +452,12 @@ export type PlantSeedsResult = {
   planted: { hanzi: string; cardId: string; slotIndex: number }[];
   skipped: string[];
   bedFull: boolean;
+  // True when the EARLY_ACCESS card cap stopped the planting — the UI
+  // answers with the upgrade dialog, not a bed-expansion nudge.
+  capReached: boolean;
+  // Cards still plantable under the cap; null for uncapped (STANDARD)
+  // players.
+  cardsRemaining: number | null;
 };
 
 // Trees in the Forest for a language pair — the un-grindable half of the
@@ -561,7 +578,8 @@ export async function plantSeeds(
   userId: string,
   langKey: string,
   bedId: string,
-  words: SeedWord[]
+  words: SeedWord[],
+  cardLimit: number | null
 ): Promise<PlantSeedsResult | undefined> {
   const [owned] = await getDb()
     .select({ bed: farmBeds, world: farmWorlds })
@@ -578,9 +596,33 @@ export async function plantSeeds(
   if (!owned) {
     return undefined;
   }
-  const result: PlantSeedsResult = { planted: [], skipped: [], bedFull: false };
+  const result: PlantSeedsResult = {
+    planted: [],
+    skipped: [],
+    bedFull: false,
+    capReached: false,
+    cardsRemaining: null,
+  };
 
   await getDb().transaction(async (tx) => {
+    let remaining: number | null = null;
+    if (cardLimit !== null) {
+      // Row lock serializes concurrent plants for this user, so two
+      // parallel requests cannot both pass the cap check. The row is
+      // guaranteed to exist — every auth entry point creates it.
+      await tx
+        .select({ userId: userAccounts.userId })
+        .from(userAccounts)
+        .where(eq(userAccounts.userId, userId))
+        .for("update");
+      const [{ used }] = await tx
+        .select({ used: sql<number>`count(*)::int` })
+        .from(cards)
+        .innerJoin(decks, eq(cards.deckId, decks.id))
+        .where(eq(decks.userId, userId));
+      remaining = Math.max(0, cardLimit - used);
+    }
+
     const occupied = await tx
       .select({ slotIndex: farmPlots.slotIndex })
       .from(farmPlots)
@@ -607,7 +649,7 @@ export async function plantSeeds(
         result.skipped.push(seed.hanzi);
         continue;
       }
-      if (slotCursor >= freeSlots.length) {
+      if (slotCursor >= freeSlots.length || remaining === 0) {
         result.skipped.push(seed.hanzi);
         continue;
       }
@@ -615,6 +657,9 @@ export async function plantSeeds(
         .insert(cards)
         .values({ ...seed, deckId: owned.bed.deckId })
         .returning();
+      if (remaining !== null) {
+        remaining -= 1;
+      }
       const slotIndex = freeSlots[slotCursor];
       slotCursor += 1;
       // A graduated word leaves an empty row behind; refill it rather
@@ -632,6 +677,11 @@ export async function plantSeeds(
           .values({ bedId, slotIndex, cardId: card.id });
       }
       result.planted.push({ hanzi: seed.hanzi, cardId: card.id, slotIndex });
+    }
+
+    if (cardLimit !== null) {
+      result.capReached = remaining === 0;
+      result.cardsRemaining = remaining;
     }
 
     if (result.planted.length > 0) {

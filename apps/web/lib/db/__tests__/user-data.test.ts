@@ -57,7 +57,7 @@ describeIntegration("resetUserData", () => {
   });
 
   beforeEach(async () => {
-    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, farm_worlds, deck_progress, user_settings cascade`;
+    await rawClient`truncate table decks, cards, card_schedules, study_sessions, review_logs, card_recordings, farm_worlds, farm_sweep_days, deck_progress, user_settings, user_accounts cascade`;
   });
 
   test("wipes every table owned by the user and leaves others intact", async () => {
@@ -93,6 +93,7 @@ describeIntegration("resetUserData", () => {
         grade: ReviewGrade.GOOD,
       });
       await upsertMusicSettings(userId, { musicVolume: 55, musicMuted: true });
+      await rawClient`insert into farm_sweep_days (user_id, lang_key, day_key) values (${userId}, 'zh-vi', '2026-09-01')`;
       return { deckId: deck.id, cardId: card!.id };
     };
 
@@ -111,6 +112,10 @@ describeIntegration("resetUserData", () => {
 
     const [worldA] = await getDb().select().from(farmWorlds);
     expect(worldA.userId).toBe(USER_B);
+
+    const sweepDays = await rawClient`select user_id from farm_sweep_days`;
+    expect(sweepDays).toHaveLength(1);
+    expect(sweepDays[0].user_id).toBe(USER_B);
 
     const orphanedChildren = await rawClient`
       select

@@ -1,24 +1,24 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("anonymous access", () => {
-  test("signed-out visit to the farm redirects to /sign-in with next", async ({
+test.describe("public access", () => {
+  test("signed-out visit lands on the title screen, not /sign-in", async ({
     page,
   }) => {
     await page.goto("/?lang=zh-vi");
 
-    await expect(page).toHaveURL(/\/sign-in\?next=/);
-    await expect(
-      page.getByRole("heading", { name: "Chào mừng trở lại" })
-    ).toBeVisible();
+    await expect(page.getByTestId("title-overlay")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page).not.toHaveURL(/sign-in/);
   });
 
-  test("signed-out bare entry also redirects to /sign-in", async ({ page }) => {
+  test("signed-out bare entry shows the Play now CTA", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page).toHaveURL(/\/sign-in/);
-    await expect(
-      page.getByRole("heading", { name: "Chào mừng trở lại" })
-    ).toBeVisible();
+    await expect(page.getByTestId("title-overlay")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("title-begin")).toHaveText("Play now");
   });
 
   test("callback rejects off-site next targets", async ({ page }) => {

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { safeNextPath } from "@/lib/auth/next-path";
 import { createSupabaseServerClient } from "@/lib/auth/server-client";
+import { ensureUserAccount } from "@/lib/db/repositories/user-account";
 
 import type { ActionResult } from "./types";
 
@@ -70,4 +71,32 @@ export async function signOutAction(): Promise<void> {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   redirect("/sign-in");
+}
+
+export async function startEarlyAccessAction(): Promise<ActionResult<true>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error || !data.user) {
+    return { ok: false, error: "Could not start playing. Try again." };
+  }
+  await ensureUserAccount(data.user.id, "EARLY_ACCESS");
+  return { ok: true, data: true };
+}
+
+// Converts the live anonymous session to STANDARD on the same uuid, so
+// farm progress carries over; the confirmation email lands on
+// /auth/callback.
+export async function upgradeToStandardAction(
+  email: string
+): Promise<ActionResult<true>> {
+  const trimmed = email.trim();
+  if (!trimmed || !trimmed.includes("@")) {
+    return { ok: false, error: "Enter a valid email address" };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.updateUser({ email: trimmed });
+  if (error) {
+    return { ok: false, error: "Could not send the upgrade link. Try again." };
+  }
+  return { ok: true, data: true };
 }

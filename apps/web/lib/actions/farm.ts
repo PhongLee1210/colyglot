@@ -21,8 +21,10 @@ import {
   getDueQueueForLang,
   openStudySession,
 } from "@/lib/db/repositories/study";
+import { getUserTier } from "@/lib/db/repositories/user-account";
 import { isRegionKey, LANG_PACKS, langsFromKey } from "@/lib/game/content";
 import type { SeedWord } from "@/lib/game/content/types";
+import { EARLY_ACCESS_CARD_LIMIT } from "@/lib/game/core/access";
 import type { FarmWorldSnapshot, HarvestCard } from "@/lib/game/types";
 import type { ActionResult } from "./types";
 
@@ -71,7 +73,14 @@ export async function plantSeedsAction(
     .flatMap((seedPack) => seedPack.words)
     .filter((word) => wanted.has(word.hanzi));
   try {
-    const result = await plantSeeds(userId, langKey, bedId, words);
+    const tier = await getUserTier(userId);
+    const result = await plantSeeds(
+      userId,
+      langKey,
+      bedId,
+      words,
+      tier === "EARLY_ACCESS" ? EARLY_ACCESS_CARD_LIMIT : null
+    );
     if (!result) {
       return { ok: false, error: "Bed not found" };
     }

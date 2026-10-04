@@ -1,15 +1,18 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { useToast } from "@/components/ui/toast";
+import { startEarlyAccessAction } from "@/lib/actions/auth";
 import { startWorldAction, switchWorldAction } from "@/lib/actions/farm";
 import {
   updateMusicSettingsAction,
   updateUiLangAction,
 } from "@/lib/actions/settings";
 import { LANG_PACKS } from "@/lib/game/content";
+import type { UserTier } from "@/lib/game/core/access";
 import type { MusicSettings } from "@/lib/game/music";
 import { useCameraStore } from "@/lib/game/store/camera-store";
 import { useFarmStore } from "@/lib/game/store/farm-store";
@@ -65,6 +68,7 @@ export function FarmGame({
   skipTitle,
   musicSettings,
   initialUiLang,
+  accessTier,
 }: {
   langKey: string;
   initialSnapshot: FarmWorldSnapshot | null;
@@ -74,6 +78,7 @@ export function FarmGame({
   skipTitle: boolean;
   musicSettings: MusicSettings;
   initialUiLang: UiLang;
+  accessTier: "none" | UserTier;
 }) {
   const snapshot = useFarmStore((state) => state.snapshot);
   const hydrate = useFarmStore((state) => state.hydrate);
@@ -83,6 +88,7 @@ export function FarmGame({
   const t = useT();
   const sceneReady = useSceneStore((state) => state.sceneReady);
   const { toast } = useToast();
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("loading");
   const [session, setSession] = useState<"nursery" | "harvest" | null>(null);
   const openPanel = useHudStore((state) => state.openPanel);
@@ -181,6 +187,32 @@ export function FarmGame({
     setPhase(skipTitle && current ? "playing" : "title");
   }, [skipTitle, current]);
 
+  const signedIn = accessTier !== "none";
+
+  // "Play now": mints the anonymous session, then runs the ordinary
+  // start-world flow — the refresh re-renders this screen with real
+  // session data (snapshot, tier, worlds).
+  const playNow = useCallback(
+    async (world: FarmWorldCard) => {
+      if (busyLangKey) return;
+      setBusyLangKey(world.langKey);
+      try {
+        const session = await startEarlyAccessAction();
+        if (!session.ok) {
+          toast(session.error, "danger");
+          return;
+        }
+        await selectWorld(world);
+        router.refresh();
+      } catch {
+        toast(t.farm.connectionLost, "danger");
+      } finally {
+        setBusyLangKey(null);
+      }
+    },
+    [busyLangKey, selectWorld, router, toast, t]
+  );
+
   return (
     <div className="relative h-dvh overflow-hidden">
       <div
@@ -260,9 +292,21 @@ export function FarmGame({
           streak={streak}
           activeLangKey={activeLangKey}
           busyLangKey={busyLangKey}
-          canBegin={Boolean(current)}
-          onBegin={() => current && beginPlay(current.world.langKey)}
-          onSelectWorld={selectWorld}
+          signedIn={signedIn}
+          canBegin={signedIn ? Boolean(current) : true}
+          onBegin={
+            signedIn
+              ? () => current && beginPlay(current.world.langKey)
+              : () => {
+                  const world =
+                    worlds.find((entry) => entry.langKey === langKey) ??
+                    worlds[0];
+                  if (world) {
+                    void playNow(world);
+                  }
+                }
+          }
+          onSelectWorld={signedIn ? selectWorld : playNow}
         />
       ) : null}
     </div>

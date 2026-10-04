@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
 import { STARTING_GOLD } from "@/lib/game/core/economy";
 import type { FarmWorldCard } from "@/lib/game/types";
@@ -12,6 +13,7 @@ export type TitleOverlayProps = {
   streak: number;
   activeLangKey: string | null;
   busyLangKey: string | null;
+  signedIn: boolean;
   canBegin: boolean;
   onBegin: () => void;
   onSelectWorld: (world: FarmWorldCard) => void;
@@ -32,16 +34,19 @@ export function TitleOverlay({
   streak,
   activeLangKey,
   busyLangKey,
+  signedIn,
   canBegin,
   onBegin,
   onSelectWorld,
 }: TitleOverlayProps) {
   const activeWorld = worlds.find((world) => world.langKey === activeLangKey);
-  const ctaLabel = !canBegin
-    ? "Pick a farm"
-    : activeWorld?.started
-      ? "Continue"
-      : "Begin";
+  const ctaLabel = !signedIn
+    ? "Play now"
+    : !canBegin
+      ? "Pick a farm"
+      : activeWorld?.started
+        ? "Continue"
+        : "Begin";
 
   return (
     <section
@@ -68,11 +73,19 @@ export function TitleOverlay({
           type="button"
           data-testid="title-begin"
           className={CTA_CLASS}
-          disabled={!canBegin || busyLangKey !== null}
+          disabled={busyLangKey !== null || (signedIn && !canBegin)}
           onClick={onBegin}
         >
           {ctaLabel}
         </button>
+        {!signedIn ? (
+          <Link
+            href="/sign-in"
+            className="text-xs font-semibold text-white/70 underline-offset-4 transition hover:text-white hover:underline"
+          >
+            Already have a farm? Sign in
+          </Link>
+        ) : null}
         <WorldRail
           worlds={worlds}
           futureLangs={futureLangs}

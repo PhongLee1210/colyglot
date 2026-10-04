@@ -3,27 +3,29 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { DEV_BYPASS_EMAIL, getDevBypassUserId } from "./dev-bypass";
 import { createSupabaseServerClient } from "./server-client";
 
 export type SessionUser = {
   id: string;
   email?: string | null;
+  isAnonymous: boolean;
 };
 
 export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
-  const devBypassUserId = getDevBypassUserId();
-  if (devBypassUserId) {
-    return { id: devBypassUserId, email: DEV_BYPASS_EMAIL };
-  }
-
   const supabase = await createSupabaseServerClient();
 
   // getUser() verifies the JWT with Supabase; getSession() alone is not
   // trustworthy for authorization decisions.
   const { data, error } = await supabase.auth.getUser();
 
-  return error ? null : data.user;
+  if (error || !data.user) {
+    return null;
+  }
+  return {
+    id: data.user.id,
+    email: data.user.email,
+    isAnonymous: data.user.is_anonymous ?? false,
+  };
 });
 
 export async function getUserId(): Promise<string | null> {

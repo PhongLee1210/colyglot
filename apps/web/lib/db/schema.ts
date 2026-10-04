@@ -16,6 +16,7 @@ import {
 import { DEFAULT_EASE_FACTOR } from "@colyglot/srs";
 
 import type { CardCollocation, CardExample } from "@/lib/game/content/types";
+import type { UserTier } from "@/lib/game/core/access";
 import { STARTING_GOLD } from "@/lib/game/core/economy";
 import { DEFAULT_MUSIC_VOLUME } from "@/lib/game/music";
 import type { FarmStats } from "@/lib/game/types";
@@ -319,6 +320,26 @@ export const farmSweepDays = pgTable(
   ]
 );
 
+export const userAccounts = pgTable(
+  "user_accounts",
+  {
+    userId: text("user_id").primaryKey(),
+    tier: text("tier").$type<UserTier>().notNull().default("EARLY_ACCESS"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // Set the moment an EARLY_ACCESS player became STANDARD; null while
+    // still on the anonymous tier.
+    upgradedAt: timestamp("upgraded_at", { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      "user_accounts_tier_check",
+      sql`${table.tier} in ('STANDARD', 'EARLY_ACCESS')`
+    ),
+  ]
+);
+
 export const userSettings = pgTable(
   "user_settings",
   {
@@ -356,4 +377,5 @@ export type FarmPlot = typeof farmPlots.$inferSelect;
 export type FarmItem = typeof farmItems.$inferSelect;
 export type FarmSweepDay = typeof farmSweepDays.$inferSelect;
 export type FarmHarvestClaim = typeof farmHarvestClaims.$inferSelect;
+export type UserAccount = typeof userAccounts.$inferSelect;
 export type UserSettings = typeof userSettings.$inferSelect;
