@@ -11,7 +11,6 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 
-import { createCard, createDeck } from "../repositories/content";
 import {
   listFarmWorlds,
   loadFarmWorldDetail,
@@ -69,50 +68,6 @@ describeIntegration("farm world repository", () => {
     expect(detail!.beds[0].plots.every((plot) => plot.cardId === null)).toBe(
       true
     );
-  });
-
-  test("legacy same-language decks import as beds with planted cards", async () => {
-    const legacy = await createDeck(USER_A, {
-      name: "Old zh deck",
-      sourceLang: "zh",
-      targetLang: "vi",
-    });
-    for (const hanzi of ["一", "二", "三", "四", "五", "六", "七", "八"]) {
-      await createCard(USER_A, {
-        deckId: legacy.id,
-        hanzi,
-        pinyin: "x",
-        translation: "y",
-        examples: [],
-        collocations: [],
-      });
-    }
-    const enDeck = await createDeck(USER_A, {
-      name: "En deck",
-      sourceLang: "en",
-      targetLang: "vi",
-    });
-    await createCard(USER_A, {
-      deckId: enDeck.id,
-      hanzi: "hello",
-      pinyin: "x",
-      translation: "y",
-      examples: [],
-      collocations: [],
-    });
-
-    await startFarmWorld(USER_A, ZH);
-    const detail = await loadFarmWorldDetail(USER_A, "zh-vi");
-    expect(detail!.beds).toHaveLength(2);
-    const imported = detail!.beds.find((bed) => bed.deckId === legacy.id)!;
-    // ceil(8 cards / 2) = 4, clamped up to START_PLOTS = 6; 6 oldest planted.
-    expect(imported.plotCount).toBe(6);
-    const plantedHanzi = imported.plots
-      .slice()
-      .sort((a, b) => a.slotIndex - b.slotIndex)
-      .map((plot) => plot.hanzi);
-    expect(plantedHanzi).toEqual(["一", "二", "三", "四", "五", "六"]);
-    expect(detail!.beds.some((bed) => bed.deckId === enDeck.id)).toBe(false);
   });
 
   test("snapshot exposes counts and world state", async () => {

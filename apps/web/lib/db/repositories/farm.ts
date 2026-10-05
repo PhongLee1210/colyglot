@@ -144,59 +144,6 @@ export async function startFarmWorld(
       regionKey: "homestead",
     });
 
-    // Legacy decks of the same language pair become beds; oldest cards
-    // occupy the first slots so the farm never starts empty. Decks that
-    // already back a bed (the greenhouse placeholder, another world's
-    // bed) are skipped — a deck can be a bed of at most one world.
-    const bedDeckRows = await tx
-      .select({ deckId: farmBeds.deckId })
-      .from(farmBeds);
-    const bedDeckIds = new Set(bedDeckRows.map((row) => row.deckId));
-    const legacyDecks = (
-      await tx
-        .select()
-        .from(decks)
-        .where(
-          and(
-            eq(decks.userId, userId),
-            eq(decks.sourceLang, input.sourceLang),
-            eq(decks.targetLang, input.targetLang)
-          )
-        )
-        .orderBy(asc(decks.createdAt))
-    ).filter((deck) => !bedDeckIds.has(deck.id));
-
-    let position = 1;
-    for (const deck of legacyDecks) {
-      if (deck.id === gardenDeck.id) continue;
-      const deckCards = await tx
-        .select({ id: cards.id })
-        .from(cards)
-        .where(eq(cards.deckId, deck.id))
-        .orderBy(asc(cards.createdAt));
-      const plotCount = Math.max(START_PLOTS, Math.ceil(deckCards.length / 2));
-      const [bed] = await tx
-        .insert(farmBeds)
-        .values({
-          worldId: world.id,
-          deckId: deck.id,
-          plotCount,
-          position,
-          regionKey: "homestead",
-        })
-        .returning();
-      position += 1;
-      if (deckCards.length > 0) {
-        await tx.insert(farmPlots).values(
-          deckCards.slice(0, plotCount).map((card, index) => ({
-            bedId: bed.id,
-            slotIndex: index,
-            cardId: card.id,
-          }))
-        );
-      }
-    }
-
     return world;
   });
 }
