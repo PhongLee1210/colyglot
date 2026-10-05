@@ -31,6 +31,8 @@ import { useFarmStore } from "@/lib/game/store/farm-store";
 import { useFxStore, type HarvestFxInput } from "@/lib/game/store/fx-store";
 import { applyClaim } from "@/lib/game/store/reducers";
 import type { FarmReviewEvent, HarvestCard } from "@/lib/game/types";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useT } from "@/lib/i18n/use-t";
 
 import { HarvestCelebration } from "./celebration";
 import { BackToFarmButton, FarmOverlay, FarmPanel } from "./farm-overlay";
@@ -72,16 +74,15 @@ function challengeWord(
   );
 }
 
-function intervalHint(intervalDays: number): string {
+function intervalHint(t: Dictionary, intervalDays: number): string {
   return intervalDays < 1
-    ? "<1d"
-    : intervalDays === 1
-      ? "1d"
-      : `${intervalDays}d`;
+    ? t.harvest.intervalLessThanDay
+    : t.harvest.intervalDays(intervalDays);
 }
 
 export function HarvestSession({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const t = useT();
   const { toast } = useToast();
   const snapshot = useFarmStore((state) => state.snapshot);
   const hydrate = useFarmStore((state) => state.hydrate);
@@ -214,28 +215,25 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
             return;
           }
         } catch {
-          toast(
-            "Connection lost — your gold is saved, retry from the farm",
-            "danger"
-          );
+          toast(t.harvest.claimFailed, "danger");
         }
       }
       onClose();
     },
-    [sessionId, snapshot, hydrate, toast, onClose]
+    [sessionId, snapshot, hydrate, toast, onClose, t]
   );
 
   const applyResult = useCallback(
     (target: HarvestCard, result: ActionResult<GradeResult> | null) => {
       if (!result) {
-        toast("Connection lost — check your network and try again", "danger");
+        toast(t.farm.connectionLost, "danger");
         setPicked(null);
         setBusy(false);
         askedAtRef.current = performance.now();
         return;
       }
       if (!result.ok) {
-        toast(result.error, "danger");
+        toast(t.errors[result.error], "danger");
         setPicked(null);
         setBusy(false);
         askedAtRef.current = performance.now();
@@ -273,7 +271,7 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
         void finish(reviewedCount);
       }
     },
-    [queue, retried, reviewed, toast, finish, startCard]
+    [queue, retried, reviewed, toast, finish, startCard, t]
   );
 
   const sendGrade = useCallback(
@@ -435,11 +433,11 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
     return (
       <FarmOverlay>
         <div className="text-4xl">🧺</div>
-        <h1 className="text-xl font-extrabold">Harvest</h1>
+        <h1 className="text-xl font-extrabold">{t.harvest.title}</h1>
         <p className="text-sm text-fg-muted">
           {snapshot.dueCount > 0
-            ? `${snapshot.dueCount} ${snapshot.dueCount === 1 ? "crop is" : "crops are"} ready. Answer each one to harvest it.`
-            : "Nothing is ready yet — plant and nurture words first."}
+            ? t.harvest.readyIntro(snapshot.dueCount)
+            : t.harvest.nothingReady}
         </p>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <div className="flex gap-3">
@@ -448,7 +446,7 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
             className="rounded-full border border-line px-6 py-2 font-bold transition hover:bg-surface-2"
             onClick={onClose}
           >
-            Back
+            {t.common.back}
           </button>
           <button
             type="button"
@@ -466,18 +464,15 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
                   setTotal(result.data.queue.length);
                   startCard(result.data.queue);
                 } else {
-                  setError(result.error);
+                  setError(t.errors[result.error]);
                 }
               } catch {
-                toast(
-                  "Connection lost — check your network and try again",
-                  "danger"
-                );
+                toast(t.farm.connectionLost, "danger");
               }
               setBusy(false);
             }}
           >
-            Begin harvest
+            {t.harvest.begin}
           </button>
         </div>
       </FarmOverlay>
@@ -488,8 +483,8 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
     return (
       <FarmOverlay>
         <div className="text-4xl">🌿</div>
-        <h1 className="text-xl font-extrabold">All caught up</h1>
-        <p className="text-sm text-fg-muted">Every crop is still growing.</p>
+        <h1 className="text-xl font-extrabold">{t.harvest.allCaughtUp}</h1>
+        <p className="text-sm text-fg-muted">{t.harvest.stillGrowing}</p>
         <BackToFarmButton onClick={onClose} />
       </FarmOverlay>
     );
@@ -511,11 +506,13 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
         <LifecycleCeremony event={ceremony} onDone={closeCeremony} />
       ) : null}
       <header className="flex items-center justify-between border-b border-line p-4">
-        <h1 className="text-lg font-extrabold">🧺 Harvest</h1>
+        <h1 className="text-lg font-extrabold">{t.harvest.heading}</h1>
         <div className="flex items-center gap-2">
           <span className="text-sm text-fg-muted">
-            {total ? `${completed} of ${total}` : `${completed} harvested`}
-            {pendingRetries > 0 ? ` · ${pendingRetries} to retry` : ""}
+            {total
+              ? t.harvest.progressOfTotal(completed, total)
+              : t.harvest.progressHarvested(completed)}
+            {pendingRetries > 0 ? t.harvest.toRetry(pendingRetries) : ""}
           </span>
           {/* Session gold tally — always mounted so the per-answer coins
               have a landing pad from the first correct answer (§8.1). */}
@@ -534,7 +531,7 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
           disabled={busy}
           onClick={() => finish(reviewed)}
         >
-          Finish
+          {t.common.finish}
         </button>
       </header>
       <div
@@ -546,11 +543,11 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
             aria-live="polite"
             className="pointer-events-none fixed left-1/2 top-1/4 z-10 -translate-x-1/2 rounded-2xl bg-green-600 px-4 py-2 text-center font-bold text-white animate-[harvest-pop_850ms_ease-out]"
           >
-            <p className="text-lg">+{preview.total} 💰</p>
+            <p className="text-lg">{t.harvest.goldPreview(preview.total)}</p>
             <p className="text-xs font-semibold opacity-90">
-              {preview.base} base × {preview.multiplier}
+              {t.harvest.goldBreakdown(preview.base, preview.multiplier)}
               {nextInterval !== null
-                ? ` · next in ${intervalHint(nextInterval)}`
+                ? t.harvest.nextInSuffix(intervalHint(t, nextInterval))
                 : ""}
             </p>
           </div>
@@ -559,10 +556,10 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
             aria-live="polite"
             className="pointer-events-none fixed left-1/2 top-1/4 z-10 -translate-x-1/2 rounded-2xl bg-orange-500 px-4 py-2 text-center font-bold text-white animate-[harvest-pop_850ms_ease-out]"
           >
-            <p className="text-lg">Learning step</p>
+            <p className="text-lg">{t.harvest.learningStep}</p>
             {nextInterval !== null ? (
               <p className="text-xs font-semibold opacity-90">
-                next in {intervalHint(nextInterval)}
+                {t.harvest.nextIn(intervalHint(t, nextInterval))}
               </p>
             ) : null}
           </div>
@@ -606,7 +603,7 @@ export function HarvestSession({ onClose }: { onClose: () => void }) {
               />
             ) : (
               <p className="max-w-sm text-sm text-fg-muted animate-[think-breathe_3s_ease-in-out_infinite] motion-reduce:animate-none">
-                {challenge.hint}
+                {t.challenge.tierHint[challenge.tier]}
               </p>
             )}
             <ChoiceGrid

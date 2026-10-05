@@ -137,7 +137,7 @@ export type FarmWorldCard = {
   langKey: string;
   name: string;
   flag: string;
-  tierName: string;
+  tierKey: string;
   gold: number;
   dueCount: number;
   started: boolean;

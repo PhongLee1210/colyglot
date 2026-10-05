@@ -3,6 +3,7 @@
 import { TriangleAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/use-t";
 
 export function ErrorInline({
   message,
@@ -11,6 +12,7 @@ export function ErrorInline({
   message: string;
   onRetry?: () => void;
 }) {
+  const t = useT();
   return (
     <div
       role="alert"
@@ -22,7 +24,7 @@ export function ErrorInline({
       </div>
       {onRetry ? (
         <Button variant="secondary" size="sm" onClick={onRetry}>
-          Try again
+          {t.common.tryAgain}
         </Button>
       ) : null}
     </div>

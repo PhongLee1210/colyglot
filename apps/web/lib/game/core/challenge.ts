@@ -65,8 +65,6 @@ export type ChallengeWord = {
 export type Challenge = {
   tier: ChallengeTier;
   direction: ChallengeDirection;
-  question: string;
-  hint: string;
   promptText: string;
   promptPinyin: string | null;
   choices: string[];
@@ -96,20 +94,6 @@ export function challengeDirection(tier: ChallengeTier): ChallengeDirection {
 export function showsPinyin(tier: ChallengeTier): boolean {
   return tier === "seedling";
 }
-
-export const TIER_LABEL: Record<ChallengeTier, string> = {
-  seedling: "New word",
-  growing: "Growing",
-  mature: "Mature",
-  ancient: "Ancient",
-};
-
-const TIER_HINT: Record<ChallengeTier, string> = {
-  seedling: "New word — read it aloud, then pick what it means.",
-  growing: "No pinyin now. Sound it out before you pick.",
-  mature: "Picture where you would use it, then pick the word.",
-  ancient: "These look alike — check the tone before you pick.",
-};
 
 export function shuffle<T>(
   items: readonly T[],
@@ -232,11 +216,6 @@ export function buildChallenge(
   return {
     tier,
     direction,
-    question:
-      direction === "recognize"
-        ? "What does this mean?"
-        : "Which word means this?",
-    hint: TIER_HINT[tier],
     promptText: direction === "recognize" ? word.hanzi : word.translation,
     promptPinyin: showsPinyin(tier) ? word.pinyin : null,
     choices: shuffle(

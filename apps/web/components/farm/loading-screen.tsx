@@ -4,7 +4,8 @@ import { useProgress } from "@react-three/drei";
 import { useEffect, useState } from "react";
 
 import type { FarmTheme } from "@/lib/game/content/types";
-import { LOADING_STEPS, loadingStepIndex } from "@/lib/game/loading-steps";
+import { loadingStepIndex } from "@/lib/game/loading-steps";
+import { useT } from "@/lib/i18n/use-t";
 
 const MIN_DISPLAY_MS = 600;
 const FADE_MS = 450;
@@ -18,6 +19,7 @@ export function LoadingScreen({
   ready: boolean;
   onDone: () => void;
 }) {
+  const t = useT();
   const { progress, errors } = useProgress();
   const [minElapsed, setMinElapsed] = useState(false);
 
@@ -35,7 +37,7 @@ export function LoadingScreen({
   }, [complete, onDone]);
 
   const failed = errors.length > 0;
-  const step = LOADING_STEPS[loadingStepIndex(progress)];
+  const step = t.loading.steps[loadingStepIndex(progress)];
 
   return (
     <div
@@ -55,13 +57,13 @@ export function LoadingScreen({
       </span>
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-extrabold text-white drop-shadow-sm">
-          Colyglot Language Farm
+          {t.loading.title}
         </h1>
         <p
           className="text-sm font-semibold text-white/85"
           data-testid="loading-step"
         >
-          {failed ? "The farm needs a little help." : step}
+          {failed ? t.loading.failed : step}
         </p>
       </div>
       {failed ? (
@@ -70,12 +72,12 @@ export function LoadingScreen({
           onClick={() => window.location.reload()}
           className="rounded-full bg-primary px-6 py-2 text-sm font-bold text-on-primary transition hover:bg-primary-700 active:bg-primary-800"
         >
-          Try again
+          {t.common.tryAgain}
         </button>
       ) : (
         <div
           role="progressbar"
-          aria-label="Loading the farm"
+          aria-label={t.loading.ariaProgress}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(progress)}

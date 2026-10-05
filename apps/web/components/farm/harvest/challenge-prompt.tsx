@@ -1,6 +1,7 @@
 "use client";
 
-import { TIER_LABEL, type Challenge } from "@/lib/game/core/challenge";
+import type { Challenge } from "@/lib/game/core/challenge";
+import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils/cn";
 
 const RETRY_BADGE =
@@ -13,6 +14,7 @@ export function ChallengePrompt({
   challenge: Challenge;
   retry: boolean;
 }) {
+  const t = useT();
   return (
     <div className="flex flex-col items-center gap-2">
       <span
@@ -21,7 +23,7 @@ export function ChallengePrompt({
           retry ? RETRY_BADGE : "bg-line text-fg-muted"
         )}
       >
-        {retry ? "Retry" : TIER_LABEL[challenge.tier]}
+        {retry ? t.challenge.retry : t.challenge.tierLabel[challenge.tier]}
       </span>
       <p
         data-testid="harvest-prompt"

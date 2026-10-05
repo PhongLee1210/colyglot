@@ -12,7 +12,7 @@ import {
   plantSeedsAction,
   unlockRegionAction,
 } from "@/lib/actions/farm";
-import { getRegion, LANG_PACKS, REGIONS } from "@/lib/game/content";
+import { LANG_PACKS, REGIONS } from "@/lib/game/content";
 import { expandBedCost } from "@/lib/game/core/economy";
 import { pickPlantingBed } from "@/lib/game/core/planting";
 import { useFarmStore } from "@/lib/game/store/farm-store";
@@ -23,6 +23,8 @@ import {
   rollbackPlant,
 } from "@/lib/game/store/reducers";
 import type { RegionStatus } from "@/lib/game/types";
+import { bedName } from "@/lib/i18n/labels";
+import { useT } from "@/lib/i18n/use-t";
 
 import { panelActionClass, panelCardClass } from "./controls";
 
@@ -30,6 +32,7 @@ type PendingWord = { hanzi: string; pinyin: string; translation: string };
 
 export function SeedsTab() {
   const router = useRouter();
+  const t = useT();
   const { toast } = useToast();
   const snapshot = useFarmStore((state) => state.snapshot);
   const hydrate = useFarmStore((state) => state.hydrate);
@@ -65,13 +68,13 @@ export function SeedsTab() {
     try {
       const result = await upgradeToStandardAction(upgradeEmail);
       if (result.ok) {
-        toast("Upgrade link sent — check your email to finish", "success");
+        toast(t.seeds.upgradeLinkSent, "success");
         setUpgradeOpen(false);
       } else {
-        toast(result.error, "danger");
+        toast(t.errors[result.error], "danger");
       }
     } catch {
-      toast("Connection lost — check your network and try again", "danger");
+      toast(t.farm.connectionLost, "danger");
     }
     setUpgrading(false);
   }
@@ -79,7 +82,7 @@ export function SeedsTab() {
   async function plantMany(
     key: string,
     bedId: string,
-    bedName: string,
+    bedLabel: string,
     words: PendingWord[]
   ) {
     if (words.length === 0 || busy) return;
@@ -106,11 +109,11 @@ export function SeedsTab() {
         if (result.data.planted.length > 0) {
           useFxStore.getState().react("wave");
           toast(
-            `Planted ${result.data.planted.length} — word limit reached`,
+            t.seeds.plantedCapReached(result.data.planted.length),
             "success"
           );
         } else {
-          toast("Word limit reached — upgrade to keep planting", "danger");
+          toast(t.seeds.capReachedUpgrade, "danger");
         }
         setUpgradeOpen(true);
       } else if (result.ok && result.data.planted.length > 0) {
@@ -120,8 +123,8 @@ export function SeedsTab() {
         const waiting = words.length - plantedCount;
         toast(
           waiting > 0
-            ? `Planted ${plantedCount} · ${waiting} need space — expand ${bedName} for more`
-            : `Planted ${plantedCount} seed${plantedCount > 1 ? "s" : ""}`,
+            ? t.seeds.plantedSomeWaiting(plantedCount, waiting, bedLabel)
+            : t.seeds.plantedCount(plantedCount),
           "success"
         );
       } else {
@@ -138,9 +141,9 @@ export function SeedsTab() {
         toast(
           result.ok
             ? result.data.bedFull
-              ? `${bedName} is full — expand it for more plots`
-              : "Already planted"
-            : result.error,
+              ? t.seeds.bedFullExpandToast(bedLabel)
+              : t.seeds.alreadyPlanted
+            : t.errors[result.error],
           "danger"
         );
       }
@@ -155,7 +158,7 @@ export function SeedsTab() {
           )
         );
       }
-      toast("Connection lost — check your network and try again", "danger");
+      toast(t.farm.connectionLost, "danger");
     }
     setBusy(null);
   }
@@ -176,12 +179,12 @@ export function SeedsTab() {
         );
         router.refresh();
         useFxStore.getState().react("hop");
-        toast(`Bed expanded — ${result.data.plotCount} plots now`, "success");
+        toast(t.seeds.bedExpanded(result.data.plotCount), "success");
       } else {
-        toast(`Need ${expandBedCost(plotCount)} gold to expand`, "danger");
+        toast(t.beds.needGoldToExpand(expandBedCost(plotCount)), "danger");
       }
     } catch {
-      toast("Connection lost — check your network and try again", "danger");
+      toast(t.farm.connectionLost, "danger");
     }
     setExpanding(false);
   }
@@ -198,12 +201,15 @@ export function SeedsTab() {
         hydrate(result.data);
         router.refresh();
         useFxStore.getState().react("cheer");
-        toast(`${getRegion(regionKey as "market").name} unlocked!`, "success");
+        toast(
+          t.seeds.regionUnlocked(t.regions[regionKey as "market"].name),
+          "success"
+        );
       } else {
-        toast(result.error, "danger");
+        toast(t.errors[result.error], "danger");
       }
     } catch {
-      toast("Connection lost — check your network and try again", "danger");
+      toast(t.farm.connectionLost, "danger");
     }
     setUnlockArmed(null);
     setBusy(null);
@@ -211,11 +217,9 @@ export function SeedsTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-fg-muted">
-        Plant words and grow your vocabulary.
-      </p>
+      <p className="text-sm text-fg-muted">{t.seeds.intro}</p>
       <p className="rounded-full bg-green-100 px-3 py-1.5 text-center text-xs font-bold text-green-900 dark:bg-green-900/40 dark:text-green-100">
-        Learning is free — planting costs 0 💰
+        {t.seeds.freeNote}
       </p>
       {access.cardLimit !== null ? (
         atCap ? (
@@ -225,15 +229,14 @@ export function SeedsTab() {
             className="rounded-full bg-amber-100 px-3 py-1.5 text-center text-xs font-bold text-amber-900 underline-offset-2 transition hover:underline dark:bg-amber-900/40 dark:text-amber-100"
             onClick={() => setUpgradeOpen(true)}
           >
-            {access.cardsUsed} / {access.cardLimit} words planted — tap to
-            upgrade
+            {t.seeds.quotaAtCap(access.cardsUsed, access.cardLimit)}
           </button>
         ) : (
           <p
             data-testid="quota-chip"
             className="rounded-full bg-sky-100 px-3 py-1.5 text-center text-xs font-bold text-sky-900 dark:bg-sky-900/40 dark:text-sky-100"
           >
-            {access.cardsUsed} / {access.cardLimit} words planted
+            {t.seeds.quotaUsed(access.cardsUsed, access.cardLimit)}
           </p>
         )
       ) : null}
@@ -256,23 +259,28 @@ export function SeedsTab() {
             >
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h3 className="font-display font-extrabold">
-                  🔒 {region.icon} {region.name}
+                  🔒 {region.icon} {t.regions[region.key].name}
                   <span className="ml-2 text-xs font-normal text-fg-muted">
-                    {region.blurb}
+                    {t.regions[region.key].blurb}
                   </span>
                 </h3>
               </div>
               <div className="flex flex-col gap-2">
                 <p className="text-sm font-semibold">
-                  Unlock for {region.unlockGold.toLocaleString()} 💰{" "}
-                  {region.unlockTrees} 🌲
+                  {t.seeds.unlockCost(region.unlockGold, region.unlockTrees)}
                 </p>
                 <p className="text-xs text-fg-muted">
                   {status.treesGateMet
-                    ? "Your Forest is ready."
-                    : `Forest trees: ${snapshot.forest.length}/${region.unlockTrees} — trees are memory, they cannot be bought.`}
+                    ? t.seeds.forestReady
+                    : t.seeds.forestProgress(
+                        snapshot.forest.length,
+                        region.unlockTrees
+                      )}
                   {!status.goldGateMet
-                    ? ` · Gold: ${snapshot.world.gold.toLocaleString()}/${region.unlockGold.toLocaleString()}`
+                    ? t.seeds.goldProgress(
+                        snapshot.world.gold,
+                        region.unlockGold
+                      )
                     : ""}
                 </p>
                 <button
@@ -291,10 +299,10 @@ export function SeedsTab() {
                   }}
                 >
                   {!status.goldGateMet || !status.treesGateMet
-                    ? "Locked"
+                    ? t.common.locked
                     : unlockArmed === region.key
-                      ? "Tap again to unlock"
-                      : `Unlock ${region.name}`}
+                      ? t.seeds.tapAgainToUnlock
+                      : t.seeds.unlockRegion(t.regions[region.key].name)}
                 </button>
               </div>
             </section>
@@ -306,12 +314,17 @@ export function SeedsTab() {
         const freeSlots = bed.plots.filter(
           (plot) => plot.cardId === null
         ).length;
+        const bedLabel = bedName(t, bed);
 
         return (
           <div key={region.key} className="flex flex-col gap-3">
             <p className="text-xs font-bold uppercase tracking-wide text-fg-muted">
-              {region.icon} {region.name} — {freeSlots} free plot
-              {freeSlots === 1 ? "" : "s"} in {bed.name}
+              {region.icon}{" "}
+              {t.seeds.freePlotsIn(
+                t.regions[region.key].name,
+                freeSlots,
+                bedLabel
+              )}
             </p>
 
             {freeSlots === 0 ? (
@@ -319,8 +332,10 @@ export function SeedsTab() {
                 className={`flex items-center justify-between gap-3 ${panelCardClass}`}
               >
                 <p className="text-sm font-semibold">
-                  {bed.name} is full — expand for {expandBedCost(bed.plotCount)}{" "}
-                  💰 to keep planting
+                  {t.seeds.bedFullExpand(
+                    bedLabel,
+                    expandBedCost(bed.plotCount)
+                  )}
                 </p>
                 <button
                   type="button"
@@ -329,8 +344,8 @@ export function SeedsTab() {
                   onClick={() => expandBed(bed.id, bed.plotCount)}
                 >
                   {expanding
-                    ? "Expanding…"
-                    : `Expand +3 · ${expandBedCost(bed.plotCount)}💰`}
+                    ? t.seeds.expanding
+                    : t.seeds.expandAction(expandBedCost(bed.plotCount))}
                 </button>
               </div>
             ) : null}
@@ -343,9 +358,9 @@ export function SeedsTab() {
                 <section key={seedPack.key} className={panelCardClass}>
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className="font-display font-extrabold">
-                      {seedPack.icon} {seedPack.name}
+                      {seedPack.icon} {t.seedPacks[seedPack.key]}
                       <span className="ml-2 text-xs font-normal text-fg-muted">
-                        {seedPack.words.length} words
+                        {t.seeds.packWordCount(seedPack.words.length)}
                       </span>
                     </h3>
                     <button
@@ -361,18 +376,18 @@ export function SeedsTab() {
                         plantMany(
                           `pack-${seedPack.key}`,
                           bed.id,
-                          bed.name,
+                          bedLabel,
                           unplanted
                         )
                       }
                     >
                       {busy === `pack-${seedPack.key}`
-                        ? "Planting…"
+                        ? t.seeds.planting
                         : atCap
-                          ? "Limit reached"
+                          ? t.seeds.limitReached
                           : freeSlots === 0
-                            ? "Bed full"
-                            : "Plant Pack"}
+                            ? t.seeds.bedFull
+                            : t.seeds.plantPack}
                     </button>
                   </div>
                   <ul className="flex flex-col gap-2">
@@ -404,7 +419,7 @@ export function SeedsTab() {
                               atCap
                             }
                             onClick={() =>
-                              plantMany(word.hanzi, bed.id, bed.name, [
+                              plantMany(word.hanzi, bed.id, bedLabel, [
                                 {
                                   hanzi: word.hanzi,
                                   pinyin: word.pinyin,
@@ -414,14 +429,14 @@ export function SeedsTab() {
                             }
                           >
                             {planted
-                              ? "Planted"
+                              ? t.seeds.plantedBadge
                               : busy === word.hanzi
-                                ? "Planting…"
+                                ? t.seeds.planting
                                 : atCap
-                                  ? "Limit reached"
+                                  ? t.seeds.limitReached
                                   : freeSlots === 0
-                                    ? "Bed full"
-                                    : `Plant ${word.hanzi}`}
+                                    ? t.seeds.bedFull
+                                    : t.seeds.plantWord(word.hanzi)}
                           </button>
                         </li>
                       );
@@ -437,19 +452,16 @@ export function SeedsTab() {
       <Dialog
         open={upgradeOpen}
         onClose={() => setUpgradeOpen(false)}
-        title="Upgrade to Standard"
+        title={t.seeds.upgradeTitle}
       >
-        <p className="text-sm text-fg-muted">
-          Keep every word you planted. Enter your email and we will send a
-          sign-in link — your farm carries over untouched.
-        </p>
-        <Field label="Email" htmlFor="upgrade-email">
+        <p className="text-sm text-fg-muted">{t.seeds.upgradeBody}</p>
+        <Field label={t.seeds.upgradeEmailLabel} htmlFor="upgrade-email">
           <Input
             id="upgrade-email"
             type="email"
             autoComplete="email"
             value={upgradeEmail}
-            placeholder="you@example.com"
+            placeholder={t.seeds.upgradeEmailPlaceholder}
             onChange={(event) => setUpgradeEmail(event.target.value)}
           />
         </Field>
@@ -459,7 +471,7 @@ export function SeedsTab() {
           disabled={upgrading}
           onClick={() => void upgrade()}
         >
-          {upgrading ? "Sending…" : "Send upgrade link"}
+          {upgrading ? t.seeds.upgradeSending : t.seeds.upgradeSend}
         </button>
       </Dialog>
     </div>

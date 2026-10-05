@@ -25,7 +25,10 @@ function answerFor(prompt: string): string | null {
 // onClick, so retry until the gold chip is on screen, which is the
 // observable definition of "started".
 async function ensureStarted(page: import("@playwright/test").Page) {
-  const startButton = page.getByRole("button", { name: "Start", exact: true });
+  const startButton = page.getByRole("button", {
+    name: "Bắt đầu",
+    exact: true,
+  });
   const farmGold = page.getByTestId("farm-gold");
   await expect(startButton.or(farmGold)).toBeVisible({ timeout: 15_000 });
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -77,9 +80,11 @@ test.describe("farm game loop", () => {
     // Plant whichever pack still has unplanted words (tolerates replays;
     // a full bed renders "Bed full" instead, so absence is a valid state).
     await page.getByTestId("dock-seeds").click();
-    const panel = page.getByRole("dialog", { name: "Seeds" });
+    const panel = page.getByRole("dialog", { name: "Hạt giống" });
     await expect(panel).toBeVisible();
-    const plantPack = panel.getByRole("button", { name: "Plant Pack" }).first();
+    const plantPack = panel
+      .getByRole("button", { name: "Gieo cả gói" })
+      .first();
     const packAttached = await plantPack
       .waitFor({ state: "attached", timeout: 3_000 })
       .then(
@@ -99,7 +104,7 @@ test.describe("farm game loop", () => {
     // Harvest: fresh (never-graded) cards are always in the due queue, so
     // whenever we just planted, this session is guaranteed to have cards.
     await page.getByTestId("dock-harvest").click();
-    const begin = page.getByRole("button", { name: "Begin harvest" });
+    const begin = page.getByRole("button", { name: "Bắt đầu thu hoạch" });
     if (await begin.isEnabled()) {
       await begin.click();
 
@@ -138,7 +143,7 @@ test.describe("farm game loop", () => {
       await expect(gold).toContainText("+");
       const harvested = Number((await gold.innerText()).replace(/[^0-9]/g, ""));
       expect(harvested).toBeGreaterThan(0);
-      await page.getByRole("button", { name: "Back to farm" }).click();
+      await page.getByRole("button", { name: "Về trang trại" }).click();
 
       const goldAfter = Number(
         (await goldChip.innerText()).replace(/[^0-9]/g, "")
@@ -152,12 +157,12 @@ test.describe("farm game loop", () => {
       );
     } else {
       // Replayed world with nothing due: the calm state must be honest.
-      await expect(page.getByText("Nothing is ready yet")).toBeVisible();
-      await page.getByRole("button", { name: "Back" }).click();
+      await expect(page.getByText("Chưa có gì chín")).toBeVisible();
+      await page.getByRole("button", { name: "Quay lại" }).click();
     }
 
     // Expansion only when affordable (cost printed on the button).
-    const expand = page.getByRole("button", { name: /^Expand / }).first();
+    const expand = page.getByRole("button", { name: /^Mở rộng / }).first();
     const expandText = await expand.innerText();
     const cost = Number(expandText.replace(/[^0-9]/g, ""));
     const goldNow = Number((await goldChip.innerText()).replace(/[^0-9]/g, ""));
@@ -166,7 +171,7 @@ test.describe("farm game loop", () => {
       // Expanding spends gold, so it arms on the first tap and pays on
       // the second.
       await expand.click();
-      await expect(expand).toHaveText(/Spend/);
+      await expect(expand).toHaveText(/Trả/);
       await expand.click();
       await expect
         .poll(async () => parseWords(await bedWords.innerText()).total, {
@@ -183,10 +188,10 @@ test.describe("farm game loop", () => {
   test("nursery opens and shows its state", async ({ page }) => {
     await page.goto("/?lang=zh-vi");
     await ensureStarted(page);
-    await page.getByRole("button", { name: "Nursery" }).click();
+    await page.getByRole("button", { name: "Vườn ươm" }).click();
     // Either a seedling to meet or the honest empty state.
     const heading = page.getByRole("heading", {
-      name: /Nursery|Nursery complete/,
+      name: /Vườn ươm|Xong vườn ươm/,
     });
     await expect(heading).toBeVisible();
   });

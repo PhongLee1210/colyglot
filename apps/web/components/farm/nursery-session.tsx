@@ -25,6 +25,7 @@ import {
 import { useFarmStore } from "@/lib/game/store/farm-store";
 import { useFxStore } from "@/lib/game/store/fx-store";
 import type { FreshCardView } from "@/lib/game/types";
+import { useT } from "@/lib/i18n/use-t";
 
 import { BackToFarmButton, FarmOverlay, FarmPanel } from "./farm-overlay";
 import { AnswerReveal } from "./harvest/answer-reveal";
@@ -59,6 +60,7 @@ function challengeWord(
 
 export function NurserySession({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const t = useT();
   const { toast } = useToast();
   const snapshot = useFarmStore((state) => state.snapshot);
   const [queue, setQueue] = useState<FreshCardView[] | null>(null);
@@ -120,12 +122,12 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
     if (sessionId) return sessionId;
     const result = await startStudySessionAction();
     if (!result.ok) {
-      toast(result.error, "danger");
+      toast(t.errors[result.error], "danger");
       return null;
     }
     setSessionId(result.data);
     return result.data;
-  }, [sessionId, toast]);
+  }, [sessionId, toast, t]);
 
   const finish = useCallback(
     async (gradedCount: number) => {
@@ -135,28 +137,25 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
           await claimHarvestAction(sessionId, snapshot!.world.langKey);
           router.refresh();
         } catch {
-          toast(
-            "Connection lost — your progress is saved, gold can be claimed later",
-            "danger"
-          );
+          toast(t.nursery.finishFailed, "danger");
         }
       }
       onClose();
     },
-    [sessionId, snapshot, router, toast, onClose]
+    [sessionId, snapshot, router, toast, onClose, t]
   );
 
   const advance = useCallback(
     async (target: FreshCardView, result: ActionResult<GradeResult> | null) => {
       if (!result) {
-        toast("Connection lost — check your network and try again", "danger");
+        toast(t.farm.connectionLost, "danger");
         setPicked(null);
         setBusy(false);
         askedAtRef.current = performance.now();
         return;
       }
       if (!result.ok) {
-        toast(result.error, "danger");
+        toast(t.errors[result.error], "danger");
         setPicked(null);
         setBusy(false);
         askedAtRef.current = performance.now();
@@ -178,7 +177,7 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
       startCard(next);
       setBusy(false);
     },
-    [queue, graded, toast, finish, startCard]
+    [queue, graded, toast, finish, startCard, t]
   );
 
   const answer = useCallback(
@@ -239,11 +238,11 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
     return (
       <FarmOverlay>
         <div className="text-4xl">🌱</div>
-        <h1 className="text-xl font-extrabold">Nursery complete</h1>
+        <h1 className="text-xl font-extrabold">{t.nursery.complete}</h1>
         <p className="text-sm text-fg-muted">
           {graded === 0
-            ? "No new seedlings — plant more seeds first."
-            : `${graded} new ${graded === 1 ? "word" : "words"} planted in memory.`}
+            ? t.nursery.noneLeft
+            : t.nursery.plantedInMemory(graded)}
         </p>
         <BackToFarmButton onClick={() => void finish(graded)} />
       </FarmOverlay>
@@ -254,10 +253,8 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
     return (
       <FarmOverlay>
         <div className="text-4xl">🌱</div>
-        <h1 className="text-xl font-extrabold">Nursery</h1>
-        <p className="text-sm text-fg-muted">
-          No new seedlings — plant more seeds first.
-        </p>
+        <h1 className="text-xl font-extrabold">{t.nursery.title}</h1>
+        <p className="text-sm text-fg-muted">{t.nursery.noneLeft}</p>
         <BackToFarmButton onClick={() => void finish(0)} />
       </FarmOverlay>
     );
@@ -271,16 +268,16 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
     <FarmPanel>
       <CorrectRunPad />
       <header className="flex items-center justify-between border-b border-line p-4">
-        <h1 className="text-lg font-extrabold">🌱 Nursery</h1>
+        <h1 className="text-lg font-extrabold">{t.nursery.heading}</h1>
         <span className="text-sm text-fg-muted">
-          {remaining.length} seedling{remaining.length === 1 ? "" : "s"} left
+          {t.nursery.seedlingsLeft(remaining.length)}
         </span>
         <button
           type="button"
           className="rounded-full border border-line px-4 py-1 text-sm transition hover:bg-surface-2"
           onClick={() => void finish(graded)}
         >
-          Stop
+          {t.common.stop}
         </button>
       </header>
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-5 overflow-y-auto p-6 text-center">
@@ -317,7 +314,7 @@ export function NurserySession({ onClose }: { onClose: () => void }) {
             className="min-h-11 rounded-full bg-primary px-6 py-2 font-bold text-on-primary transition hover:bg-primary-700 active:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-primary-500"
             onClick={beginQuiz}
           >
-            Check my memory
+            {t.nursery.checkMemory}
           </button>
         ) : challenge ? (
           <>

@@ -34,7 +34,7 @@ function buildWorldCards(
       langKey: pack.key,
       name: pack.name,
       flag: pack.flag,
-      tierName: pack.tiers[overview?.world.tier ?? 0].name,
+      tierKey: pack.tiers[overview?.world.tier ?? 0].key,
       gold: overview?.world.gold ?? 0,
       dueCount: overview?.dueCount ?? 0,
       started: Boolean(overview),

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { FarmReviewEvent } from "@/lib/game/types";
+import { useT } from "@/lib/i18n/use-t";
 
 // The first three graduations cannot be skipped (GAME_PLAY §8.2) — the
 // ceremony is the game's emotional payoff, so it earns its screen time.
@@ -21,6 +22,7 @@ export function LifecycleCeremony({
   event: FarmReviewEvent;
   onDone: () => void;
 }) {
+  const t = useT();
   // Skippability is decided once, from the persisted ceremony count — a
   // state initializer (not an effect) keeps the first paint correct.
   const [canSkipNow] = useState(() => {
@@ -57,7 +59,9 @@ export function LifecycleCeremony({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={graduation ? "Graduation" : "Demotion"}
+      aria-label={
+        graduation ? t.ceremony.ariaGraduation : t.ceremony.ariaDemotion
+      }
       data-testid="lifecycle-ceremony"
       className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/45 p-6 text-center text-white"
     >
@@ -66,7 +70,7 @@ export function LifecycleCeremony({
           {graduation ? "🌳✨" : "🍃"}
         </div>
         <h1 className="text-xl font-extrabold">
-          {graduation ? "Graduated to the Forest" : "Back to the soil"}
+          {graduation ? t.ceremony.graduated : t.ceremony.backToSoil}
         </h1>
         <p className="font-hanzi text-4xl font-bold">{event.hanzi}</p>
         <p className="text-sm opacity-90">
@@ -74,15 +78,12 @@ export function LifecycleCeremony({
         </p>
         {graduation ? (
           <p className="text-sm font-semibold">
-            Remembered for {event.intervalDays} days — Forest +1 🌲
+            {t.ceremony.rememberedFor(event.intervalDays)}
           </p>
         ) : (
           <p className="max-w-sm text-sm opacity-90">
-            The tree came back down. Starting over — this time it will be
-            faster.
-            {event.greenhouse
-              ? " The farm was full, so it waits in the greenhouse."
-              : ""}
+            {t.ceremony.demotionBody}
+            {event.greenhouse ? t.ceremony.greenhouseNote : ""}
           </p>
         )}
         <button
@@ -91,7 +92,7 @@ export function LifecycleCeremony({
           disabled={!canContinue}
           onClick={onDone}
         >
-          Continue
+          {t.common.continue}
         </button>
       </div>
     </div>

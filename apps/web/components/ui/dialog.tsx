@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 
+import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils/cn";
 
 type DialogProps = {
@@ -24,6 +25,7 @@ export function Dialog({
   modal = true,
   showCloseButton = true,
 }: DialogProps) {
+  const t = useT();
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -78,7 +80,7 @@ export function Dialog({
           {showCloseButton && (
             <button
               type="button"
-              aria-label="Close settings"
+              aria-label={t.common.closeDialog(title)}
               onClick={onClose}
               className="flex size-7 items-center justify-center rounded-lg transition hover:bg-white/40 dark:hover:bg-white/10"
             >

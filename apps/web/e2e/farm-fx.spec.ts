@@ -7,7 +7,10 @@ import { expect, test } from "@playwright/test";
 
 async function enterPlay(page: import("@playwright/test").Page) {
   await page.goto("/?lang=zh-vi");
-  const startButton = page.getByRole("button", { name: "Start", exact: true });
+  const startButton = page.getByRole("button", {
+    name: "Bắt đầu",
+    exact: true,
+  });
   const farmGold = page.getByTestId("farm-gold");
   await expect(startButton.or(farmGold)).toBeVisible({ timeout: 30_000 });
   if (await startButton.isVisible()) {
@@ -36,9 +39,9 @@ async function plantIfPossible(
 ): Promise<void> {
   const bedWords = page.getByTestId("bed-words").first();
   await page.getByTestId("dock-seeds").click();
-  const panel = page.getByRole("dialog", { name: "Seeds" });
+  const panel = page.getByRole("dialog", { name: "Hạt giống" });
   await expect(panel).toBeVisible();
-  const plantPack = panel.getByRole("button", { name: "Plant Pack" }).first();
+  const plantPack = panel.getByRole("button", { name: "Gieo cả gói" }).first();
   const packAttached = await plantPack
     .waitFor({ state: "attached", timeout: 3_000 })
     .then(

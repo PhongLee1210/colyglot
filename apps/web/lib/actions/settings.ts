@@ -10,20 +10,16 @@ import { UI_LANGS, type UiLang } from "@/lib/i18n/ui-langs";
 
 import type { ActionResult } from "./types";
 
-function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
-
 export async function updateMusicSettingsAction(
   volume: number,
   muted: boolean
 ): Promise<ActionResult<{ volume: number; muted: boolean }>> {
   const userId = await requireUserId();
   if (!Number.isFinite(volume)) {
-    return { ok: false, error: "Invalid volume" };
+    return { ok: false, error: "INVALID_VOLUME" };
   }
   if (typeof muted !== "boolean") {
-    return { ok: false, error: "Invalid mute state" };
+    return { ok: false, error: "INVALID_MUTE_STATE" };
   }
   const settings = {
     volume: clampMusicVolume(volume),
@@ -38,8 +34,8 @@ export async function updateMusicSettingsAction(
       ok: true,
       data: { volume: saved.musicVolume, muted: saved.musicMuted },
     };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }
 
@@ -48,12 +44,12 @@ export async function updateUiLangAction(
 ): Promise<ActionResult<{ uiLang: UiLang }>> {
   const userId = await requireUserId();
   if (!UI_LANGS.includes(lang as UiLang)) {
-    return { ok: false, error: "Invalid interface language" };
+    return { ok: false, error: "INVALID_UI_LANG" };
   }
   try {
     const saved = await upsertUiLang(userId, lang as UiLang);
     return { ok: true, data: { uiLang: saved } };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }

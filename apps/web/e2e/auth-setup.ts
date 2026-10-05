@@ -11,7 +11,7 @@ test("establish signed-in storage state", async ({ page }) => {
     )}&password=${encodeURIComponent(E2E_PASSWORD)}&reset=1`
   );
   await expect(
-    page.getByRole("heading", { name: "Colyglot Language Farm" })
+    page.getByRole("heading", { name: "Trang Trại Ngôn Ngữ Colyglot" })
   ).toBeVisible();
   await page.context().storageState({ path: "e2e/.auth/user.json" });
 });

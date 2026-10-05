@@ -1,7 +1,8 @@
 "use client";
 
-import { getRegion } from "@/lib/game/content/regions";
+import { getRegion, MASTERY_THRESHOLD } from "@/lib/game/content/regions";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
+import { useT } from "@/lib/i18n/use-t";
 import { XP_PER_LEVEL, xpIntoLevel } from "@/lib/xp";
 
 import { panelCardClass } from "./controls";
@@ -9,12 +10,13 @@ import { panelCardClass } from "./controls";
 export function ProgressTab({
   snapshot,
   streak,
-  tierName,
+  tierKey,
 }: {
   snapshot: FarmWorldSnapshot;
   streak: number;
-  tierName: string;
+  tierKey: string;
 }) {
+  const t = useT();
   const intoLevel = xpIntoLevel(snapshot.xp);
   const plotCount = snapshot.beds.reduce((sum, bed) => sum + bed.plotCount, 0);
   const growing = snapshot.beds.reduce(
@@ -28,10 +30,10 @@ export function ProgressTab({
       <section className={panelCardClass}>
         <div className="flex items-baseline justify-between gap-2">
           <h3 className="font-display text-base font-extrabold">
-            Level {snapshot.level}
+            {t.progress.level(snapshot.level)}
           </h3>
           <span className="text-xs font-bold text-fg-muted">
-            {intoLevel} / {XP_PER_LEVEL} XP
+            {t.progress.xpOfTotal(intoLevel, XP_PER_LEVEL)}
           </span>
         </div>
         <span className="mt-2 block h-2 overflow-hidden rounded-full bg-black/15">
@@ -41,33 +43,43 @@ export function ProgressTab({
           />
         </span>
         <p className="mt-2 text-xs text-fg-muted">
-          {tierName} · {streak} day streak
+          {t.farmTiers[tierKey].name} · {t.progress.dayStreak(streak)}
         </p>
       </section>
 
       <section className={panelCardClass}>
-        <h3 className="font-display text-base font-extrabold">This farm</h3>
+        <h3 className="font-display text-base font-extrabold">
+          {t.progress.thisFarm}
+        </h3>
         <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
           <ProgressStat
-            label="Words planted"
+            label={t.progress.wordsPlanted}
             value={snapshot.world.stats.planted}
           />
           <ProgressStat
-            label="Harvested"
+            label={t.progress.harvested}
             value={snapshot.world.stats.harvested}
           />
           <ProgressStat
-            label="Gold earned"
+            label={t.progress.goldEarned}
             value={snapshot.world.stats.goldEarned}
           />
-          <ProgressStat label="Gold on hand" value={snapshot.world.gold} />
-          <ProgressStat label="Plots" value={`${growing} / ${plotCount}`} />
-          <ProgressStat label="Beds" value={snapshot.beds.length} />
+          <ProgressStat
+            label={t.progress.goldOnHand}
+            value={snapshot.world.gold}
+          />
+          <ProgressStat
+            label={t.progress.plots}
+            value={`${growing} / ${plotCount}`}
+          />
+          <ProgressStat label={t.progress.beds} value={snapshot.beds.length} />
         </dl>
       </section>
 
       <section className={panelCardClass}>
-        <h3 className="font-display text-base font-extrabold">Regions</h3>
+        <h3 className="font-display text-base font-extrabold">
+          {t.progress.regions}
+        </h3>
         <ul className="mt-2 flex flex-col gap-2.5">
           {snapshot.regions.map((region) => {
             const def = getRegion(region.key);
@@ -76,15 +88,16 @@ export function ProgressTab({
               <li key={region.key} data-testid={`region-${region.key}`}>
                 <div className="flex items-baseline justify-between gap-2 text-sm">
                   <span className="font-bold">
-                    <span aria-hidden="true">{def.icon}</span> {def.name}{" "}
+                    <span aria-hidden="true">{def.icon}</span>{" "}
+                    {t.regions[region.key].name}{" "}
                     {plaque ? (
-                      <span title="Mastery plaque earned">🏆</span>
+                      <span title={t.progress.plaqueEarned}>🏆</span>
                     ) : null}
                   </span>
                   <span className="text-xs font-bold text-fg-muted">
                     {region.unlocked
-                      ? `${region.masteryPct}% mastery`
-                      : "Locked"}
+                      ? t.progress.masteryPct(region.masteryPct)
+                      : t.common.locked}
                   </span>
                 </div>
                 <span className="mt-1 block h-2 overflow-hidden rounded-full bg-black/15">
@@ -98,16 +111,23 @@ export function ProgressTab({
           })}
         </ul>
         <p className="mt-2 text-xs text-fg-muted">
-          Grow 80% of a region&apos;s words into forest trees to earn its stone
-          plaque.
+          {t.progress.plaqueHint(Math.round(MASTERY_THRESHOLD * 100))}
         </p>
       </section>
 
       <section className={panelCardClass}>
-        <h3 className="font-display text-base font-extrabold">Right now</h3>
+        <h3 className="font-display text-base font-extrabold">
+          {t.progress.rightNow}
+        </h3>
         <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-          <ProgressStat label="New seedlings" value={snapshot.freshCount} />
-          <ProgressStat label="Ready to harvest" value={snapshot.dueCount} />
+          <ProgressStat
+            label={t.progress.newSeedlings}
+            value={snapshot.freshCount}
+          />
+          <ProgressStat
+            label={t.progress.readyToHarvest}
+            value={snapshot.dueCount}
+          />
         </dl>
       </section>
     </div>

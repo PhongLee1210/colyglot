@@ -18,7 +18,7 @@ test.describe("public access", () => {
     await expect(page.getByTestId("title-overlay")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByTestId("title-begin")).toHaveText("Play now");
+    await expect(page.getByTestId("title-begin")).toHaveText("Chơi ngay");
   });
 
   test("callback rejects off-site next targets", async ({ page }) => {

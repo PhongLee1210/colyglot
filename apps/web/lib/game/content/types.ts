@@ -20,8 +20,6 @@ export type FarmTheme = {
 
 export type FarmTier = {
   key: string;
-  name: string;
-  subtitle: string;
   theme: FarmTheme;
 };
 
@@ -35,7 +33,6 @@ export type SeedWord = {
 
 export type SeedPack = {
   key: string;
-  name: string;
   icon: string;
   words: SeedWord[];
 };

@@ -7,9 +7,7 @@ export type RegionKey = "homestead" | "market";
 
 export type RegionDef = {
   key: RegionKey;
-  name: string;
   icon: string;
-  blurb: string;
   /** Gold the unlock charges; 0 for regions that come with the farm. */
   unlockGold: number;
   /** Forest trees required before the unlock is even offered (§5.3). */
@@ -18,16 +16,17 @@ export type RegionDef = {
   startPlots: number;
   /** Seed packs whose words belong to this region's topic. */
   packKeys: string[];
-  /** Name of the bed created when the region unlocks. */
+  /**
+   * Row identity for the bed created when the region unlocks. Stored once
+   * and never rendered — the UI labels beds from the dictionary instead.
+   */
   bedName: string;
 };
 
 export const REGIONS: readonly RegionDef[] = [
   {
     key: "homestead",
-    name: "Homestead",
     icon: "🏡",
-    blurb: "Numbers, greetings, family — the ground every farm starts on.",
     unlockGold: 0,
     unlockTrees: 0,
     startPlots: 6,
@@ -36,9 +35,7 @@ export const REGIONS: readonly RegionDef[] = [
   },
   {
     key: "market",
-    name: "Market",
     icon: "🏮",
-    blurb: "Food, shopping, prices — a busier topic for a busier farm.",
     unlockGold: 1_200,
     unlockTrees: 25,
     startPlots: 12,

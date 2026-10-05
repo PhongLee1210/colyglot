@@ -3,6 +3,7 @@
 import { useRef } from "react";
 
 import type { FarmWorldCard } from "@/lib/game/types";
+import { useT } from "@/lib/i18n/use-t";
 import { XP_PER_LEVEL, xpIntoLevel } from "@/lib/xp";
 
 import { GameSettings } from "./game-settings";
@@ -14,7 +15,7 @@ const statChipClass =
 export function TopBar({
   flag,
   langName,
-  tierName,
+  tierKey,
   gold,
   level,
   xp,
@@ -27,7 +28,7 @@ export function TopBar({
 }: {
   flag: string;
   langName: string;
-  tierName: string;
+  tierKey: string;
   gold: number;
   level: number;
   xp: number;
@@ -38,6 +39,7 @@ export function TopBar({
   onSelectWorld: (world: FarmWorldCard) => void;
   onOpenWorlds: () => void;
 }) {
+  const t = useT();
   const intoLevel = xpIntoLevel(xp);
   const barRef = useRef<HTMLElement>(null);
   useHudTopVar(barRef);
@@ -51,8 +53,8 @@ export function TopBar({
     >
       <button
         type="button"
-        aria-label="Switch language"
-        title="Switch language"
+        aria-label={t.topBar.switchLanguage}
+        title={t.topBar.switchLanguage}
         onClick={onOpenWorlds}
         className="flex flex-col rounded-xl px-2 py-0.5 text-left text-white transition hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 sm:glass-dark sm:rounded-2xl sm:px-4 sm:py-1.5"
       >
@@ -60,7 +62,7 @@ export function TopBar({
           {flag} {langName}
         </span>
         <span className="mt-0.5 w-fit rounded-full bg-black/25 px-1.5 text-xs font-bold text-white/85">
-          {tierName}
+          {t.farmTiers[tierKey].name}
         </span>
       </button>
 
@@ -70,15 +72,15 @@ export function TopBar({
           key={gold}
           data-testid="farm-gold"
           className={`${statChipClass} animate-[gold-bump_600ms_ease-out]`}
-          title="gold"
+          title={t.topBar.gold}
         >
           💰 {gold}
         </span>
-        <span className={statChipClass} title="day streak">
+        <span className={statChipClass} title={t.topBar.dayStreak}>
           🔥 {streak}
         </span>
         <span className="flex min-h-9 flex-col items-center justify-center rounded-full bg-black/25 px-2.5 text-xs font-bold leading-tight text-white">
-          <span>Lv {level}</span>
+          <span>{t.topBar.level(level)}</span>
           <span className="h-1.5 w-16 overflow-hidden rounded-full bg-black/35">
             <span
               className="block h-full rounded-full bg-green-500"

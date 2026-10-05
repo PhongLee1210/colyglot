@@ -74,7 +74,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         ref={regionRef}
         popover="manual"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom),16px)] z-50 flex flex-col items-center gap-2 px-4"
+        className="pointer-events-none fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom),16px)] z-50 flex flex-col items-center gap-2 border-none bg-transparent p-0 px-4"
       >
         {toasts.map((item) => (
           <div

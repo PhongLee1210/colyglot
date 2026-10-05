@@ -7,7 +7,10 @@ import { expect, test } from "@playwright/test";
 // planted or empty, is a raycast target).
 async function enterPlay(page: import("@playwright/test").Page) {
   await page.goto("/?lang=zh-vi");
-  const startButton = page.getByRole("button", { name: "Start", exact: true });
+  const startButton = page.getByRole("button", {
+    name: "Bắt đầu",
+    exact: true,
+  });
   const farmGold = page.getByTestId("farm-gold");
   await expect(startButton.or(farmGold)).toBeVisible({ timeout: 30_000 });
   if (await startButton.isVisible()) {
@@ -50,7 +53,7 @@ test.describe("farm interaction", () => {
     expect(card, "a plot tile near canvas center should select").not.toBeNull();
     await expect(card!).toBeVisible();
 
-    await page.getByRole("button", { name: "Close plot details" }).click();
+    await page.getByRole("button", { name: "Đóng chi tiết ô đất" }).click();
     await expect(page.getByTestId("plot-info")).toHaveCount(0);
   });
 

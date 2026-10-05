@@ -79,26 +79,28 @@ describe("coachHint", () => {
       snapshot([plot()], { dueCount: 2, freshCount: 3 }),
       NOW
     );
-    expect(hint).toBe("2 crops are ripe — harvest them to lock the words in");
+    expect(hint).toEqual({ kind: "ripe", count: 2 });
   });
 
   test("new seedlings come next", () => {
-    expect(coachHint(snapshot([plot()], { freshCount: 1 }), NOW)).toBe(
-      "1 new seedling is waiting in the nursery"
-    );
+    expect(coachHint(snapshot([plot()], { freshCount: 1 }), NOW)).toEqual({
+      kind: "fresh",
+      count: 1,
+    });
   });
 
   test("an untouched farm points at seeds", () => {
-    expect(coachHint(snapshot([plot(), plot()]), NOW)).toBe(
-      "Tap Seeds to plant your first words"
-    );
+    expect(coachHint(snapshot([plot(), plot()]), NOW)).toEqual({
+      kind: "nothingPlanted",
+    });
   });
 
   test("empty ground asks for more planting", () => {
     const plots = [plot({ cardId: "card-1", hanzi: "水" }), plot()];
-    expect(coachHint(snapshot(plots), NOW)).toBe(
-      "1 plot is empty — plant another word"
-    );
+    expect(coachHint(snapshot(plots), NOW)).toEqual({
+      kind: "emptyPlots",
+      count: 1,
+    });
   });
 
   test("a full farm counts down to the next harvest", () => {
@@ -114,8 +116,9 @@ describe("coachHint", () => {
         },
       }),
     ];
-    expect(coachHint(snapshot(plots), NOW)).toBe(
-      "Every plot is growing — next harvest in 1h 30m"
-    );
+    expect(coachHint(snapshot(plots), NOW)).toEqual({
+      kind: "growingUntil",
+      wait: { unit: "hours", hours: 1, minutes: 30 },
+    });
   });
 });

@@ -37,7 +37,10 @@ async function resizeGradually(
 // The storage-state reset can leave the deep-linked world unstarted, so the
 // farm is reached either directly or through the title overlay's Start.
 async function enterPlay(page: import("@playwright/test").Page): Promise<void> {
-  const startButton = page.getByRole("button", { name: "Start", exact: true });
+  const startButton = page.getByRole("button", {
+    name: "Bắt đầu",
+    exact: true,
+  });
   const farmGold = page.getByTestId("farm-gold");
   await expect(startButton.or(farmGold)).toBeVisible({ timeout: 30_000 });
   for (let attempt = 0; attempt < 3; attempt++) {

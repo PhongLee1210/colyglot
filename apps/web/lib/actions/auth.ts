@@ -29,7 +29,7 @@ export async function signInWithEmailAction(
 ): Promise<ActionResult<true>> {
   const trimmed = email.trim();
   if (!trimmed || !trimmed.includes("@")) {
-    return { ok: false, error: "Enter a valid email address" };
+    return { ok: false, error: "INVALID_EMAIL" };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -44,7 +44,7 @@ export async function signInWithEmailAction(
   });
 
   if (error) {
-    return { ok: false, error: "Could not send the sign-in link. Try again." };
+    return { ok: false, error: "COULD_NOT_SEND_SIGN_IN_LINK" };
   }
   return { ok: true, data: true };
 }
@@ -77,7 +77,7 @@ export async function startEarlyAccessAction(): Promise<ActionResult<true>> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInAnonymously();
   if (error || !data.user) {
-    return { ok: false, error: "Could not start playing. Try again." };
+    return { ok: false, error: "COULD_NOT_START_PLAYING" };
   }
   await ensureUserAccount(data.user.id, "EARLY_ACCESS");
   return { ok: true, data: true };
@@ -91,12 +91,12 @@ export async function upgradeToStandardAction(
 ): Promise<ActionResult<true>> {
   const trimmed = email.trim();
   if (!trimmed || !trimmed.includes("@")) {
-    return { ok: false, error: "Enter a valid email address" };
+    return { ok: false, error: "INVALID_EMAIL" };
   }
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.updateUser({ email: trimmed });
   if (error) {
-    return { ok: false, error: "Could not send the upgrade link. Try again." };
+    return { ok: false, error: "COULD_NOT_SEND_UPGRADE_LINK" };
   }
   return { ok: true, data: true };
 }

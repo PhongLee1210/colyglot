@@ -1,35 +1,39 @@
-import { formatWait } from "@/lib/game/core/crops";
+import { waitSpan, type WaitSpan } from "@/lib/game/core/crops";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
 
-// One sentence naming the single most useful next move, in the order the
-// loop rewards: harvest what is ripe, meet new words, fill empty ground,
-// then wait. It mirrors the farm state only — no stored progress.
+// The single most useful next move, named but not worded — the dictionary
+// turns it into a sentence so the pill speaks the player's language.
+export type CoachHint =
+  | { kind: "ripe"; count: number }
+  | { kind: "fresh"; count: number }
+  | { kind: "nothingPlanted" }
+  | { kind: "emptyPlots"; count: number }
+  | { kind: "growingUntil"; wait: WaitSpan }
+  | { kind: "growing" };
+
+// Ordered the way the loop rewards: harvest what is ripe, meet new words,
+// fill empty ground, then wait. It mirrors the farm state only — no stored
+// progress.
 export function coachHint(
   snapshot: FarmWorldSnapshot,
   now: Date | null
-): string {
+): CoachHint {
   if (snapshot.dueCount > 0) {
-    return snapshot.dueCount === 1
-      ? "1 crop is ripe — harvest it to lock the word in"
-      : `${snapshot.dueCount} crops are ripe — harvest them to lock the words in`;
+    return { kind: "ripe", count: snapshot.dueCount };
   }
   if (snapshot.freshCount > 0) {
-    return snapshot.freshCount === 1
-      ? "1 new seedling is waiting in the nursery"
-      : `${snapshot.freshCount} new seedlings are waiting in the nursery`;
+    return { kind: "fresh", count: snapshot.freshCount };
   }
 
   const plots = snapshot.beds.flatMap((bed) => bed.plots);
   const planted = plots.filter((plot) => plot.cardId !== null);
   if (planted.length === 0) {
-    return "Tap Seeds to plant your first words";
+    return { kind: "nothingPlanted" };
   }
 
   const freeSlots = plots.length - planted.length;
   if (freeSlots > 0) {
-    return freeSlots === 1
-      ? "1 plot is empty — plant another word"
-      : `${freeSlots} plots are empty — plant more words`;
+    return { kind: "emptyPlots", count: freeSlots };
   }
 
   const nextDueAt = planted
@@ -37,7 +41,7 @@ export function coachHint(
     .filter((dueAt): dueAt is Date => dueAt !== undefined)
     .sort((left, right) => left.getTime() - right.getTime())[0];
   if (nextDueAt && now) {
-    return `Every plot is growing — next harvest in ${formatWait(nextDueAt, now)}`;
+    return { kind: "growingUntil", wait: waitSpan(nextDueAt, now) };
   }
-  return "Every plot is growing — come back soon";
+  return { kind: "growing" };
 }

@@ -2,24 +2,28 @@
 
 import { useEffect } from "react";
 
-import { cropStage, daysToGraduation, formatWait } from "@/lib/game/core/crops";
+import { cropStage, daysToGraduation, waitSpan } from "@/lib/game/core/crops";
 import { useSelectionStore } from "@/lib/game/store/selection-store";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { bedName } from "@/lib/i18n/labels";
+import { useT } from "@/lib/i18n/use-t";
 
 function stageLine(
+  t: Dictionary,
   plot: FarmWorldSnapshot["beds"][number]["plots"][number],
   now: Date | null
 ): string | null {
   if (!plot.hanzi || !plot.schedule || now === null) return null;
   switch (cropStage(plot.schedule, now)) {
     case "fresh":
-      return "New seedling — visit the Nursery";
+      return t.plot.stageFresh;
     case "growing":
-      return `Growing · ready in ${formatWait(plot.schedule.dueAt, now)}`;
+      return t.plot.stageGrowing(t.wait(waitSpan(plot.schedule.dueAt, now)));
     case "ready":
-      return "Ready to harvest";
+      return t.plot.stageReady;
     case "urgent":
-      return "Memory fading — harvest soon";
+      return t.plot.stageUrgent;
   }
 }
 
@@ -34,6 +38,7 @@ function GraduationLine({
   >;
   now: Date;
 }) {
+  const t = useT();
   const days = daysToGraduation(schedule, now);
   if (days === null) return null;
   return (
@@ -41,8 +46,7 @@ function GraduationLine({
       data-testid="graduation-countdown"
       className="mt-1 text-xs font-bold text-amber-600 dark:text-amber-400"
     >
-      🌟 Graduates to 🌳 in {days} {days === 1 ? "day" : "days"} — keep it
-      healthy!
+      {t.plot.graduatesIn(days)}
     </p>
   );
 }
@@ -62,6 +66,7 @@ export function PlotInfoCard({
   onOpenSeeds: () => void;
   onOpenHarvest: () => void;
 }) {
+  const t = useT();
   const selection = useSelectionStore((state) => state.plot);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
 
@@ -83,7 +88,7 @@ export function PlotInfoCard({
   );
   if (!bed || !plot) return null;
 
-  const line = stageLine(plot, now);
+  const line = stageLine(t, plot, now);
   const stage =
     plot.hanzi && plot.schedule && now !== null
       ? cropStage(plot.schedule, now)
@@ -100,17 +105,17 @@ export function PlotInfoCard({
       data-testid="plot-info"
       role="dialog"
       aria-label={
-        plot.hanzi ? `Plot ${plot.hanzi} details` : "Empty plot details"
+        plot.hanzi ? t.plot.ariaDetails(plot.hanzi) : t.plot.ariaEmptyDetails
       }
       className="glass-warm fixed inset-x-3 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-30 rounded-2xl p-4 text-fg sm:inset-x-auto sm:left-3 sm:w-72"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-extrabold uppercase tracking-wide text-fg-muted">
-          {bed.name}
+          {bedName(t, bed)}
         </p>
         <button
           type="button"
-          aria-label="Close plot details"
+          aria-label={t.plot.close}
           className="-m-1 flex h-8 w-8 items-center justify-center rounded-full text-fg-muted transition hover:bg-white/40 active:scale-95 dark:hover:bg-white/10"
           onClick={clearSelection}
         >
@@ -137,22 +142,20 @@ export function PlotInfoCard({
               className="mt-3 w-full rounded-full bg-accent px-4 py-2.5 text-sm font-extrabold text-on-accent transition hover:brightness-105 active:scale-95"
               onClick={() => act(onOpenHarvest)}
             >
-              🧺 Harvest now
+              {t.plot.harvestNow}
             </button>
           ) : null}
         </>
       ) : (
         <>
-          <p className="mt-1 text-sm font-bold">Empty plot</p>
-          <p className="mt-1 text-xs text-fg-muted">
-            Plant a word here from your seed pack.
-          </p>
+          <p className="mt-1 text-sm font-bold">{t.plot.emptyPlot}</p>
+          <p className="mt-1 text-xs text-fg-muted">{t.plot.plantHint}</p>
           <button
             type="button"
             className="mt-3 w-full rounded-full bg-accent px-4 py-2.5 text-sm font-extrabold text-on-accent transition hover:brightness-105 active:scale-95"
             onClick={() => act(onOpenSeeds)}
           >
-            🌰 Plant seeds
+            {t.plot.plantSeeds}
           </button>
         </>
       )}

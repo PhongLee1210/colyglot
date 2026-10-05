@@ -46,11 +46,8 @@ export async function startStudySessionAction(): Promise<ActionResult<string>> {
   try {
     const session = await openStudySession(userId);
     return { ok: true, data: session.id };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Could not start session",
-    };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }
 
@@ -90,7 +87,7 @@ export async function gradeCardAction(
       lastReviewedAt: next.lastReviewedAt,
     });
     if (!upserted) {
-      return { ok: false, error: "Card not found" };
+      return { ok: false, error: "CARD_NOT_FOUND" };
     }
     const log = await appendReviewLog(userId, {
       cardId,
@@ -101,7 +98,7 @@ export async function gradeCardAction(
       hesitated: outcome.hesitated,
     });
     if (!log) {
-      return { ok: false, error: "Session not found" };
+      return { ok: false, error: "SESSION_NOT_FOUND" };
     }
     await addDeckXpForCard(userId, cardId, XP_BY_GRADE[grade]);
     let farmEvent: FarmReviewEvent | null = null;
@@ -125,11 +122,8 @@ export async function gradeCardAction(
         farmEvent,
       },
     };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Could not save grade",
-    };
+  } catch {
+    return { ok: false, error: "COULD_NOT_SAVE_GRADE" };
   }
 }
 
@@ -141,13 +135,10 @@ export async function finishSessionAction(
   try {
     const closed = await closeStudySession(userId, sessionId, cardsReviewed);
     if (!closed) {
-      return { ok: false, error: "Session not found" };
+      return { ok: false, error: "SESSION_NOT_FOUND" };
     }
     return { ok: true, data: true };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Could not close session",
-    };
+  } catch {
+    return { ok: false, error: "COULD_NOT_CLOSE_SESSION" };
   }
 }

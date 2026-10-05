@@ -34,13 +34,14 @@ import { cropVariant } from "@/lib/game/art/variants";
 import type { FarmTheme } from "@/lib/game/content/types";
 import {
   cropStage,
-  formatWait,
   nearGraduation,
+  waitSpan,
   wiltIntensity,
   type CropStage,
 } from "@/lib/game/core/crops";
 import { useFxStore } from "@/lib/game/store/fx-store";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
+import { useT } from "@/lib/i18n/use-t";
 
 import { plotInstances } from "./plots-3d";
 
@@ -146,6 +147,7 @@ export function Crops3D({
     () => cropGeometries(theme.accent),
     [theme.accent]
   );
+  const t = useT();
   const reference = now ?? EPOCH;
   const capacity = snapshot.beds.reduce((sum, bed) => sum + bed.plotCount, 0);
 
@@ -190,7 +192,7 @@ export function Crops3D({
         basesByKey.set(key, base);
         const wait =
           plot.schedule && stage === "growing"
-            ? formatWait(plot.schedule.dueAt, reference)
+            ? t.wait(waitSpan(plot.schedule.dueAt, reference))
             : "";
         badges.push({
           key,
@@ -204,7 +206,7 @@ export function Crops3D({
       });
     });
     return { bases, basesByKey, badges };
-  }, [snapshot.beds, plotPositionByKey, reference]);
+  }, [snapshot.beds, plotPositionByKey, reference, t]);
 
   // Snapshot diffing runs post-commit: a cardId appearing is a plant
   // pop-in, a stage flip under the same cardId is a morph. Effects fire

@@ -2,9 +2,15 @@ import { expect, test } from "@playwright/test";
 
 // Same streaming/hydration race as farm.spec.ts: wait for either the
 // start prompt or the farm before touching gameplay UI. The title screen
-// is not localized yet, so its button label stays English in both langs.
-async function ensureStarted(page: import("@playwright/test").Page) {
-  const startButton = page.getByRole("button", { name: "Start", exact: true });
+// is localized, so the caller names the label for the language in play.
+async function ensureStarted(
+  page: import("@playwright/test").Page,
+  startLabel = "Bắt đầu"
+) {
+  const startButton = page.getByRole("button", {
+    name: startLabel,
+    exact: true,
+  });
   const farmGold = page.getByTestId("farm-gold");
   await expect(startButton.or(farmGold)).toBeVisible({ timeout: 15_000 });
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -56,7 +62,7 @@ test.describe("interface language", () => {
     });
 
     await page.reload();
-    await ensureStarted(page);
+    await ensureStarted(page, "Start");
     await openSettings(page, "Game settings");
     await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
 

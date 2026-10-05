@@ -3,11 +3,13 @@
 import { useEffect, type ReactNode } from "react";
 
 import { useHudStore } from "@/lib/game/store/hud-store";
+import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils/cn";
 
 import { PANEL_TABS, findPanelTab } from "./tabs";
 
 export function SidePanel({ children }: { children: ReactNode }) {
+  const t = useT();
   const openTab = useHudStore((state) => state.openTab);
   const openPanel = useHudStore((state) => state.openPanel);
   const closePanel = useHudStore((state) => state.closePanel);
@@ -23,16 +25,17 @@ export function SidePanel({ children }: { children: ReactNode }) {
 
   if (!openTab) return null;
   const active = findPanelTab(openTab);
+  const activeLabel = t.tabs[active.id].label;
 
   return (
     <aside
       role="dialog"
-      aria-label={active.label}
+      aria-label={activeLabel}
       data-testid="side-panel"
       className="glass-warm fixed inset-x-1.5 bottom-[4.75rem] z-30 flex h-[min(60dvh,26rem)] flex-col overflow-hidden rounded-3xl text-fg animate-[panel-in_220ms_cubic-bezier(0.2,0.9,0.3,1)] motion-reduce:animate-none sm:inset-x-auto sm:bottom-24 sm:right-19 sm:top-[calc(var(--hud-top)+3.5rem)] sm:h-auto sm:w-100"
     >
       <nav
-        aria-label="Farm panels"
+        aria-label={t.panel.ariaTabs}
         className="flex shrink-0 gap-0.5 overflow-x-auto border-b-2 border-white/40 bg-white/25 px-1.5 pt-1.5 [scrollbar-width:none] sm:grid sm:grid-cols-7 sm:overflow-visible [&::-webkit-scrollbar]:hidden"
       >
         {PANEL_TABS.map((tab) => {
@@ -54,7 +57,7 @@ export function SidePanel({ children }: { children: ReactNode }) {
                 {tab.icon}
               </span>
               <span className="whitespace-nowrap text-[10px] font-extrabold">
-                {tab.label}
+                {t.tabs[tab.id].label}
               </span>
               {tab.locked ? (
                 <span
@@ -70,10 +73,10 @@ export function SidePanel({ children }: { children: ReactNode }) {
       </nav>
 
       <header className="flex shrink-0 items-center justify-between gap-3 px-4 pt-3">
-        <h2 className="font-display text-lg font-extrabold">{active.label}</h2>
+        <h2 className="font-display text-lg font-extrabold">{activeLabel}</h2>
         <button
           type="button"
-          aria-label={`Close ${active.label}`}
+          aria-label={t.panel.closeTab(activeLabel)}
           className="-m-1 flex size-8 items-center justify-center rounded-full text-fg-muted transition hover:bg-white/50 active:scale-95 dark:hover:bg-white/10"
           onClick={closePanel}
         >

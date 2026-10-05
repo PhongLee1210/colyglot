@@ -22,7 +22,7 @@ test.describe("early access play", () => {
     await page.getByTestId("dock-seeds").click();
     const quota = page.getByTestId("quota-chip");
     await expect(quota).toBeVisible();
-    await expect(quota).toHaveText(/0 \/ 50 words planted/);
+    await expect(quota).toHaveText(/Đã gieo 0 \/ 50 từ/);
   });
 
   test("title screen links returning players to /sign-in", async ({ page }) => {
@@ -32,7 +32,7 @@ test.describe("early access play", () => {
     await expect(overlay).toBeVisible({ timeout: 30_000 });
 
     await page
-      .getByRole("link", { name: "Already have a farm? Sign in" })
+      .getByRole("link", { name: "Đã có trang trại? Đăng nhập" })
       .click();
     await expect(page).toHaveURL(/\/sign-in/);
   });

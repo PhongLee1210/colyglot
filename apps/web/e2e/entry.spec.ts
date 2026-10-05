@@ -9,7 +9,10 @@ async function enterPlay(
   url: string
 ): Promise<void> {
   await page.goto(url);
-  const startButton = page.getByRole("button", { name: "Start", exact: true });
+  const startButton = page.getByRole("button", {
+    name: "Bắt đầu",
+    exact: true,
+  });
   const farmGold = page.getByTestId("farm-gold");
   await expect(startButton.or(farmGold)).toBeVisible({ timeout: 30_000 });
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -36,7 +39,7 @@ test.describe("game entry flow", () => {
     await expect(overlay).toBeVisible({ timeout: 30_000 });
 
     const startButton = page.getByRole("button", {
-      name: "Start",
+      name: "Bắt đầu",
       exact: true,
     });
     if (await startButton.isVisible()) {
@@ -63,7 +66,7 @@ test.describe("game entry flow", () => {
     test.setTimeout(90_000);
     await enterPlay(page, "/?lang=zh-vi");
 
-    await page.getByRole("button", { name: "Switch language" }).click();
+    await page.getByRole("button", { name: "Đổi ngôn ngữ" }).click();
     const overlay = page.getByTestId("title-overlay");
     await expect(overlay).toBeVisible();
     await expect(page.getByTestId("farm-gold")).toBeHidden();

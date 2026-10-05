@@ -10,6 +10,8 @@ import { useFarmStore } from "@/lib/game/store/farm-store";
 import { useFxStore } from "@/lib/game/store/fx-store";
 import { applyExpand } from "@/lib/game/store/reducers";
 import type { FarmWorldSnapshot } from "@/lib/game/types";
+import { bedName } from "@/lib/i18n/labels";
+import { useT } from "@/lib/i18n/use-t";
 
 export function BedRail({
   snapshot,
@@ -38,6 +40,7 @@ function BedChip({
   bed: FarmWorldSnapshot["beds"][number];
   now: Date | null;
 }) {
+  const t = useT();
   const hydrate = useFarmStore((state) => state.hydrate);
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -62,6 +65,7 @@ function BedChip({
   // The greenhouse only ever receives demoted words (GAME_PLAY §5.2) —
   // expanding it would be buying recovery slots, which is not a thing.
   const greenhouse = bed.kind === "greenhouse";
+  const bedLabel = bedName(t, bed);
 
   async function expand() {
     if (!armed) {
@@ -78,10 +82,10 @@ function BedChip({
         );
         useFxStore.getState().react("hop");
       } else {
-        toast(`Need ${cost} gold to expand`, "danger");
+        toast(t.beds.needGoldToExpand(cost), "danger");
       }
     } catch {
-      toast("Connection lost — check your network and try again", "danger");
+      toast(t.farm.connectionLost, "danger");
     } finally {
       setBusy(false);
     }
@@ -91,28 +95,28 @@ function BedChip({
     <div className="glass-dark pointer-events-auto flex w-max shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-white">
       <span className="font-display text-xs font-extrabold">
         {greenhouse ? "🌱 " : ""}
-        {bed.name}
+        {bedLabel}
       </span>
       <span
         data-testid="bed-words"
         className="rounded-full bg-black/30 px-1.5 text-[11px] font-bold"
       >
-        {planted}/{bed.plotCount} words
+        {t.beds.wordCount(planted, bed.plotCount)}
       </span>
       {ready > 0 ? (
         <span className="rounded-full bg-[var(--color-accent)] px-1.5 text-[11px] font-bold text-on-accent">
-          {ready} ready
+          {t.beds.readyCount(ready)}
         </span>
       ) : null}
       {greenhouse ? null : (
         <button
           type="button"
-          aria-label={`Expand ${bed.name}`}
+          aria-label={t.beds.expandAria(bedLabel)}
           className="rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-bold transition hover:bg-white/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={busy}
           onClick={expand}
         >
-          {armed ? `Spend ${cost}💰?` : `+3 · ${cost}💰`}
+          {armed ? t.beds.expandArm(cost) : t.beds.expandOffer(cost)}
         </button>
       )}
     </div>

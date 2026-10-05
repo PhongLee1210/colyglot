@@ -5,9 +5,11 @@ import { Suspense } from "react";
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { SignInHeading } from "@/components/auth/sign-in-heading";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { DEFAULT_UI_LANG } from "@/lib/i18n/ui-langs";
 
 export const metadata: Metadata = {
-  title: "Sign in · Colyglot",
+  title: getDictionary(DEFAULT_UI_LANG).signIn.pageTitle,
 };
 
 export default function SignInPage() {

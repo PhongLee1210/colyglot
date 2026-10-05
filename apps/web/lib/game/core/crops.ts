@@ -38,14 +38,22 @@ export function daysToGraduation(
   return Math.max(1, Math.ceil(ms / 86_400_000));
 }
 
-export function formatWait(dueAt: Date, now: Date): string {
+// The unit, not the sentence: how a wait reads depends on the UI language,
+// so the dictionary turns this into text.
+export type WaitSpan =
+  | { unit: "now" }
+  | { unit: "minutes"; minutes: number }
+  | { unit: "hours"; hours: number; minutes: number }
+  | { unit: "days"; days: number };
+
+export function waitSpan(dueAt: Date, now: Date): WaitSpan {
   const ms = dueAt.getTime() - now.getTime();
-  if (ms <= 60 * 1000) return "now";
+  if (ms <= 60 * 1000) return { unit: "now" };
   const minutes = Math.floor(ms / 60_000);
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return { unit: "minutes", minutes };
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ${minutes % 60}m`;
-  return `${Math.floor(hours / 24)}d`;
+  if (hours < 24) return { unit: "hours", hours, minutes: minutes % 60 };
+  return { unit: "days", days: Math.floor(hours / 24) };
 }
 
 // Wilting is a forecast, not a punishment (GAME_PLAY §4): intensity must

@@ -3,6 +3,7 @@
 import { Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils/cn";
 
 const ZH_LANG = "zh-CN";
@@ -62,13 +63,14 @@ export function SpeakButton({
   className?: string;
   onSpeakEnd?: () => void;
 }) {
+  const t = useT();
   const { supported, voices } = useChineseVoice();
   const [available, setAvailable] = useState(true);
 
   return (
     <button
       type="button"
-      aria-label="Hear this word"
+      aria-label={t.speak.aria}
       onClick={() => {
         if (!supported || voices.length === 0) {
           setAvailable(false);
@@ -89,7 +91,7 @@ export function SpeakButton({
         !available && "opacity-50",
         className
       )}
-      title={available ? "Hear it" : "No Chinese voice on this device"}
+      title={available ? t.speak.available : t.speak.unavailable}
     >
       <Volume2 className="size-4.5" aria-hidden />
     </button>

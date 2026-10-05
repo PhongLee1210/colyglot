@@ -8,6 +8,8 @@ import { BoxGeometry } from "three";
 import type { FarmMaterials } from "@/lib/game/3d/material-factory";
 import type { BedLayout, FarmExtents } from "@/lib/game/3d/positioning";
 import type { BedView } from "@/lib/game/types";
+import { bedName } from "@/lib/i18n/labels";
+import { useT } from "@/lib/i18n/use-t";
 
 const POST_SIZE = [0.14, 1.15, 0.14] as const;
 const BOARD_SIZE = [1.35, 0.5, 0.1] as const;
@@ -59,6 +61,7 @@ function BedPlatform({
   boardGeometry: BoxGeometry;
   plaqueOwned: boolean;
 }) {
+  const t = useT();
   const signPosition: [number, number, number] = [
     layout.origin[0] + 0.1,
     0,
@@ -96,7 +99,7 @@ function BedPlatform({
           style={{ pointerEvents: "none" }}
         >
           <span className="whitespace-nowrap rounded-full bg-[#5d3a1e]/85 px-2 py-0.5 text-[11px] font-extrabold text-[#fdf3e3] shadow">
-            {bed.name}
+            {bedName(t, bed)}
           </span>
         </Html>
         {plaqueOwned ? <MasteryPlaque materials={materials} /> : null}

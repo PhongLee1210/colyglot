@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { ReviewGrade } from "@colyglot/srs";
 
 import type { BedView } from "@/lib/game/types";
-import { cropStage, formatWait, wiltIntensity } from "./crops";
+import { cropStage, waitSpan, wiltIntensity } from "./crops";
 import {
   applyStreakBonus,
   baseHarvestGold,
@@ -146,18 +146,26 @@ describe("wiltIntensity", () => {
   });
 });
 
-describe("formatWait", () => {
+describe("waitSpan", () => {
   const now = new Date("2026-09-27T12:00:00Z");
 
-  test("renders human countdown", () => {
-    expect(formatWait(new Date(now.getTime() + 90 * 60 * 1000), now)).toBe(
-      "1h 30m"
-    );
-    expect(formatWait(new Date(now.getTime() + 45 * 60 * 1000), now)).toBe(
-      "45m"
-    );
-    expect(formatWait(new Date(now.getTime() + 3 * DAY), now)).toBe("3d");
-    expect(formatWait(new Date(now.getTime() - 1000), now)).toBe("now");
+  test("names the unit the countdown reads in", () => {
+    expect(waitSpan(new Date(now.getTime() + 90 * 60 * 1000), now)).toEqual({
+      unit: "hours",
+      hours: 1,
+      minutes: 30,
+    });
+    expect(waitSpan(new Date(now.getTime() + 45 * 60 * 1000), now)).toEqual({
+      unit: "minutes",
+      minutes: 45,
+    });
+    expect(waitSpan(new Date(now.getTime() + 3 * DAY), now)).toEqual({
+      unit: "days",
+      days: 3,
+    });
+    expect(waitSpan(new Date(now.getTime() - 1000), now)).toEqual({
+      unit: "now",
+    });
   });
 });
 

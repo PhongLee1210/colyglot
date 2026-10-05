@@ -7,6 +7,7 @@ import {
   INPUT_BUFFER_MS,
   type Challenge,
 } from "@/lib/game/core/challenge";
+import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils/cn";
 
 // Wandering between options before committing is the same signal as
@@ -53,6 +54,7 @@ export function ChoiceGrid({
   onPick: (choice: string) => void;
   onHesitate: () => void;
 }) {
+  const t = useT();
   const focused = useRef<Set<string>>(new Set());
   const gridRef = useRef<HTMLDivElement>(null);
   // An early tap in the dying milliseconds of the previous hold, waiting
@@ -140,7 +142,7 @@ export function ChoiceGrid({
     <div
       ref={gridRef}
       role="group"
-      aria-label={challenge.question}
+      aria-label={t.challenge.question[challenge.direction]}
       data-testid="harvest-choices"
       className="grid w-full max-w-md grid-cols-2 gap-2"
       onPointerDown={(event) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import type { CardExample } from "@/lib/game/content/types";
+import { useT } from "@/lib/i18n/use-t";
 
 export function AnswerReveal({
   hanzi,
@@ -23,6 +24,7 @@ export function AnswerReveal({
   onUndo: () => void;
   onContinue: () => void;
 }) {
+  const t = useT();
   return (
     <div
       aria-live="polite"
@@ -30,7 +32,7 @@ export function AnswerReveal({
       className="flex w-full max-w-md flex-col items-center gap-2 rounded-3xl border border-line bg-surface-2 p-4 text-center"
     >
       <p className="text-sm font-bold">
-        {correct ? "Right — harvested" : "Not this time"}
+        {correct ? t.answer.correct : t.answer.wrong}
       </p>
       <p className="font-hanzi text-3xl font-bold">{hanzi}</p>
       <p className="text-sm text-fg-muted">{pinyin}</p>
@@ -52,7 +54,7 @@ export function AnswerReveal({
               className="min-h-11 rounded-full border border-line px-5 py-2 text-sm font-bold transition hover:bg-surface"
               onClick={onUndo}
             >
-              I mistapped
+              {t.answer.mistapped}
             </button>
           ) : null}
           {canContinue ? (
@@ -61,7 +63,7 @@ export function AnswerReveal({
               className="min-h-11 rounded-full bg-primary px-5 py-2 text-sm font-bold text-on-primary transition hover:bg-primary-700 active:bg-primary-800 dark:hover:bg-primary-500"
               onClick={onContinue}
             >
-              Continue
+              {t.common.continue}
             </button>
           ) : null}
         </div>

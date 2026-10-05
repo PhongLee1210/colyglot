@@ -24,11 +24,10 @@ describe("content registry", () => {
       packs: [
         {
           key: "dup",
-          name: "A",
           icon: "x",
           words: zh.packs[0].words.slice(0, 2),
         },
-        { key: "dup", name: "B", icon: "y", words: [zh.packs[0].words[0]] },
+        { key: "dup", icon: "y", words: [zh.packs[0].words[0]] },
       ],
     };
     const errors = validateContent([bad]);

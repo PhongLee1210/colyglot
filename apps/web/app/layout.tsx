@@ -8,6 +8,9 @@ import {
   Noto_Serif_SC,
 } from "next/font/google";
 
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { DEFAULT_UI_LANG } from "@/lib/i18n/ui-langs";
+
 import "./globals.css";
 
 const beVietnam = Be_Vietnam_Pro({
@@ -37,12 +40,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Metadata renders before any user is resolved, so it speaks the default
+// interface language.
 export const metadata: Metadata = {
   title: {
     default: "Colyglot",
     template: "%s · Colyglot",
   },
-  description: "Learn Chinese with spaced repetition — actually remember it.",
+  description: getDictionary(DEFAULT_UI_LANG).meta.description,
 };
 
 export const viewport: Viewport = {
@@ -57,7 +62,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang={DEFAULT_UI_LANG}
       suppressHydrationWarning
       className={`${beVietnam.variable} ${baloo.variable} ${notoSerifSC.variable} ${geistMono.variable} h-full antialiased`}
     >

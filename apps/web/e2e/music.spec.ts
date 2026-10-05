@@ -3,7 +3,10 @@ import { expect, test } from "@playwright/test";
 // Same streaming/hydration race as farm.spec.ts: wait for either the
 // start prompt or the farm before touching gameplay UI.
 async function ensureStarted(page: import("@playwright/test").Page) {
-  const startButton = page.getByRole("button", { name: "Start", exact: true });
+  const startButton = page.getByRole("button", {
+    name: "Bắt đầu",
+    exact: true,
+  });
   const farmGold = page.getByTestId("farm-gold");
   await expect(startButton.or(farmGold)).toBeVisible({ timeout: 15_000 });
   for (let attempt = 0; attempt < 3; attempt++) {

@@ -26,8 +26,6 @@ export const zh: LanguagePack = {
   tiers: [
     {
       key: "t0",
-      name: "First Sprouts",
-      subtitle: "Your first words take root",
       theme: {
         sky: ["#aee3f5", "#e8f7e0"],
         ground: ["#8fbf6a", "#6b9c4c"],
@@ -38,8 +36,6 @@ export const zh: LanguagePack = {
     },
     {
       key: "t1",
-      name: "Growing Garden",
-      subtitle: "The garden fills with life",
       theme: {
         sky: ["#9fd8ef", "#f4eccb"],
         ground: ["#7fb35c", "#5a8a41"],
@@ -50,8 +46,6 @@ export const zh: LanguagePack = {
     },
     {
       key: "t2",
-      name: "Village Bloom",
-      subtitle: "A village grows around your words",
       theme: {
         sky: ["#f3c98b", "#fbe9c8"],
         ground: ["#94b25f", "#6f8a44"],
@@ -62,8 +56,6 @@ export const zh: LanguagePack = {
     },
     {
       key: "t3",
-      name: "Stone Town",
-      subtitle: "Stone walls and busy markets",
       theme: {
         sky: ["#b9cfe4", "#e9e2d0"],
         ground: ["#8a9a6a", "#65734c"],
@@ -74,8 +66,6 @@ export const zh: LanguagePack = {
     },
     {
       key: "t4",
-      name: "Trade Harbor",
-      subtitle: "Ships carry your words far away",
       theme: {
         sky: ["#8ec9e8", "#f2e4c4"],
         ground: ["#7ba86a", "#568049"],
@@ -86,8 +76,6 @@ export const zh: LanguagePack = {
     },
     {
       key: "t5",
-      name: "Industrial Farm",
-      subtitle: "Steam and steel, harvests at scale",
       theme: {
         sky: ["#c9c3b4", "#e8dcc0"],
         ground: ["#8f8f6d", "#6a6a4e"],
@@ -98,8 +86,6 @@ export const zh: LanguagePack = {
     },
     {
       key: "t6",
-      name: "Modern Metropolis",
-      subtitle: "City lights, endless vocabulary",
       theme: {
         sky: ["#a8c4dd", "#dfe7ea"],
         ground: ["#7d9977", "#59725a"],
@@ -110,8 +96,6 @@ export const zh: LanguagePack = {
     },
     {
       key: "t7",
-      name: "Neon Future",
-      subtitle: "Words glow in the night city",
       theme: {
         sky: ["#3b2f63", "#7a4f8f"],
         ground: ["#3f4f6a", "#2a3550"],
@@ -122,8 +106,6 @@ export const zh: LanguagePack = {
     },
     {
       key: "t8",
-      name: "Star Colony",
-      subtitle: "Your vocabulary reaches the stars",
       theme: {
         sky: ["#1a103f", "#4a2a6a"],
         ground: ["#5c4a7a", "#3d3055"],
@@ -136,7 +118,6 @@ export const zh: LanguagePack = {
   packs: [
     {
       key: "greetings",
-      name: "Greetings",
       icon: "👋",
       words: [
         w("你好", "nǐ hǎo", "xin chào", ["你好！", "Nǐ hǎo!", "Xin chào!"]),
@@ -179,7 +160,6 @@ export const zh: LanguagePack = {
     },
     {
       key: "food",
-      name: "Food & Drink",
       icon: "🍜",
       words: [
         w(

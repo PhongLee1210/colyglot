@@ -26,11 +26,8 @@ import { isRegionKey, LANG_PACKS, langsFromKey } from "@/lib/game/content";
 import type { SeedWord } from "@/lib/game/content/types";
 import { EARLY_ACCESS_CARD_LIMIT } from "@/lib/game/core/access";
 import type { FarmWorldSnapshot, HarvestCard } from "@/lib/game/types";
-import type { ActionResult } from "./types";
 
-function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
+import type { ActionResult } from "./types";
 
 export async function startWorldAction(
   langKey: string
@@ -38,7 +35,7 @@ export async function startWorldAction(
   const userId = await requireUserId();
   const pack = LANG_PACKS[langKey];
   if (!pack) {
-    return { ok: false, error: "Unknown language" };
+    return { ok: false, error: "UNKNOWN_LANGUAGE" };
   }
   try {
     const world = await startFarmWorld(userId, {
@@ -49,12 +46,12 @@ export async function startWorldAction(
       bedName: `${pack.name} garden`,
     });
     if (!world) {
-      return { ok: false, error: "Could not start farm" };
+      return { ok: false, error: "COULD_NOT_START_FARM" };
     }
     revalidatePath("/");
     return { ok: true, data: { langKey } };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }
 
@@ -66,7 +63,7 @@ export async function plantSeedsAction(
   const userId = await requireUserId();
   const pack = LANG_PACKS[langKey];
   if (!pack) {
-    return { ok: false, error: "Unknown language" };
+    return { ok: false, error: "UNKNOWN_LANGUAGE" };
   }
   const wanted = new Set(hanziList);
   const words: SeedWord[] = pack.packs
@@ -82,12 +79,12 @@ export async function plantSeedsAction(
       tier === "EARLY_ACCESS" ? EARLY_ACCESS_CARD_LIMIT : null
     );
     if (!result) {
-      return { ok: false, error: "Bed not found" };
+      return { ok: false, error: "BED_NOT_FOUND" };
     }
     revalidatePath("/");
     return { ok: true, data: result };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }
 
@@ -98,15 +95,15 @@ export async function expandBedAction(
   try {
     const result = await expandFarmBed(userId, bedId);
     if (result === undefined) {
-      return { ok: false, error: "Bed not found" };
+      return { ok: false, error: "BED_NOT_FOUND" };
     }
     if (result === "insufficient") {
-      return { ok: false, error: "Not enough gold" };
+      return { ok: false, error: "NOT_ENOUGH_GOLD" };
     }
     revalidatePath("/");
     return { ok: true, data: result };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }
 
@@ -118,12 +115,12 @@ export async function claimHarvestAction(
   try {
     const result = await claimSessionHarvest(userId, sessionId, langKey);
     if (!result) {
-      return { ok: false, error: "Nothing to claim" };
+      return { ok: false, error: "NOTHING_TO_CLAIM" };
     }
     revalidatePath("/");
     return { ok: true, data: result };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }
 
@@ -134,7 +131,7 @@ export async function openHarvestAction(
   const langs = langsFromKey(langKey);
   const world = await getFarmWorld(userId, langKey);
   if (!langs || !world) {
-    return { ok: false, error: "Farm not found" };
+    return { ok: false, error: "FARM_NOT_FOUND" };
   }
   try {
     const session = await openStudySession(userId);
@@ -174,8 +171,8 @@ export async function openHarvestAction(
         })),
       },
     };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }
 
@@ -187,26 +184,26 @@ export async function buyItemAction(
 ): Promise<ActionResult<{ gold: number }>> {
   const userId = await requireUserId();
   if (!LANG_PACKS[langKey]) {
-    return { ok: false, error: "Unknown language" };
+    return { ok: false, error: "UNKNOWN_LANGUAGE" };
   }
   try {
     const result = await purchaseItem(userId, langKey, itemKey);
     if (result === undefined) {
-      return { ok: false, error: "Item not found" };
+      return { ok: false, error: "ITEM_NOT_FOUND" };
     }
     if (result === "owned") {
-      return { ok: false, error: "Already owned" };
+      return { ok: false, error: "ALREADY_OWNED" };
     }
     if (result === "locked-tier") {
-      return { ok: false, error: "Buy the previous house tier first" };
+      return { ok: false, error: "HOUSE_TIER_ORDER" };
     }
     if (result === "insufficient") {
-      return { ok: false, error: "Not enough gold" };
+      return { ok: false, error: "NOT_ENOUGH_GOLD" };
     }
     revalidatePath("/");
     return { ok: true, data: result };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }
 
@@ -217,16 +214,16 @@ export async function switchWorldAction(
 ): Promise<ActionResult<FarmWorldSnapshot>> {
   const userId = await requireUserId();
   if (!LANG_PACKS[langKey]) {
-    return { ok: false, error: "Unknown language" };
+    return { ok: false, error: "UNKNOWN_LANGUAGE" };
   }
   try {
     const snapshot = await loadFarmWorldDetail(userId, langKey);
     if (!snapshot) {
-      return { ok: false, error: "Start this farm first" };
+      return { ok: false, error: "START_FARM_FIRST" };
     }
     return { ok: true, data: snapshot };
   } catch {
-    return { ok: false, error: "Could not load farm" };
+    return { ok: false, error: "COULD_NOT_LOAD_FARM" };
   }
 }
 
@@ -238,25 +235,25 @@ export async function unlockRegionAction(
 ): Promise<ActionResult<FarmWorldSnapshot>> {
   const userId = await requireUserId();
   if (!LANG_PACKS[langKey] || !isRegionKey(regionKey)) {
-    return { ok: false, error: "Unknown region" };
+    return { ok: false, error: "UNKNOWN_REGION" };
   }
   try {
     const result = await unlockRegion(userId, langKey, regionKey);
     if (result === undefined) {
-      return { ok: false, error: "Start this farm first" };
+      return { ok: false, error: "START_FARM_FIRST" };
     }
     if (result === "already-unlocked") {
-      return { ok: false, error: "Region already unlocked" };
+      return { ok: false, error: "REGION_ALREADY_UNLOCKED" };
     }
     if (result === "trees-gate") {
-      return { ok: false, error: "Not enough forest trees yet" };
+      return { ok: false, error: "NOT_ENOUGH_TREES" };
     }
     if (result === "insufficient-gold") {
-      return { ok: false, error: "Not enough gold" };
+      return { ok: false, error: "NOT_ENOUGH_GOLD" };
     }
     revalidatePath("/");
     return { ok: true, data: result };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
+  } catch {
+    return { ok: false, error: "SOMETHING_WENT_WRONG" };
   }
 }

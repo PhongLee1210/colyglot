@@ -1,4 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
+
+import { useT } from "@/lib/i18n/use-t";
 
 // Sessions take the whole screen and must cover the HUD layer (z-30), not
 // sit under the dock and rails that float above the farm.
@@ -18,13 +22,14 @@ export function FarmPanel({ children }: { children: ReactNode }) {
 }
 
 export function BackToFarmButton({ onClick }: { onClick: () => void }) {
+  const t = useT();
   return (
     <button
       type="button"
       className="rounded-full bg-primary px-6 py-2 font-bold text-on-primary transition hover:bg-primary-700 active:bg-primary-800 dark:hover:bg-primary-500"
       onClick={onClick}
     >
-      Back to farm
+      {t.common.backToFarm}
     </button>
   );
 }

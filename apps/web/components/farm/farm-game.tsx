@@ -153,13 +153,13 @@ export function FarmGame({
         if (!world.started) {
           const started = await startWorldAction(world.langKey);
           if (!started.ok) {
-            toast(started.error, "danger");
+            toast(t.errors[started.error], "danger");
             return;
           }
         }
         const result = await switchWorldAction(world.langKey);
         if (!result.ok) {
-          toast(result.error, "danger");
+          toast(t.errors[result.error], "danger");
           return;
         }
         hydrate(result.data);
@@ -199,7 +199,7 @@ export function FarmGame({
       try {
         const session = await startEarlyAccessAction();
         if (!session.ok) {
-          toast(session.error, "danger");
+          toast(t.errors[session.error], "danger");
           return;
         }
         await selectWorld(world);
@@ -233,7 +233,7 @@ export function FarmGame({
           <TopBar
             flag={pack.flag}
             langName={pack.name}
-            tierName={tier.name}
+            tierKey={tier.key}
             gold={current.world.gold}
             level={current.level}
             xp={current.xp}
@@ -258,7 +258,7 @@ export function FarmGame({
             <PanelContent
               snapshot={current}
               streak={streak}
-              tierName={tier.name}
+              tierKey={tier.key}
             />
           </SidePanel>
           <ActionDock
@@ -314,12 +314,13 @@ export function FarmGame({
 }
 
 function StageLegend() {
+  const t = useT();
   return (
     <div className="glass-dark pointer-events-none fixed bottom-24 left-3 z-20 hidden items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold text-white lg:flex">
-      <span aria-hidden="true">🌱 New</span>
-      <span aria-hidden="true">⏳ Growing</span>
-      <span aria-hidden="true">✨ Ready</span>
-      <span aria-hidden="true">🧺 Harvest</span>
+      <span aria-hidden="true">🌱 {t.stageLegend.fresh}</span>
+      <span aria-hidden="true">⏳ {t.stageLegend.growing}</span>
+      <span aria-hidden="true">✨ {t.stageLegend.ready}</span>
+      <span aria-hidden="true">🧺 {t.stageLegend.harvest}</span>
     </div>
   );
 }

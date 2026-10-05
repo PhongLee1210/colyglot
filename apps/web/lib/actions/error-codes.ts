@@ -1,0 +1,32 @@
+// Server actions never return prose: the UI language lives on the client,
+// so an action names its failure and the dictionary renders it.
+export const ACTION_ERROR_CODES = [
+  "UNKNOWN_LANGUAGE",
+  "UNKNOWN_REGION",
+  "COULD_NOT_START_FARM",
+  "BED_NOT_FOUND",
+  "NOT_ENOUGH_GOLD",
+  "NOTHING_TO_CLAIM",
+  "FARM_NOT_FOUND",
+  "ITEM_NOT_FOUND",
+  "ALREADY_OWNED",
+  "HOUSE_TIER_ORDER",
+  "START_FARM_FIRST",
+  "COULD_NOT_LOAD_FARM",
+  "REGION_ALREADY_UNLOCKED",
+  "NOT_ENOUGH_TREES",
+  "CARD_NOT_FOUND",
+  "SESSION_NOT_FOUND",
+  "COULD_NOT_SAVE_GRADE",
+  "COULD_NOT_CLOSE_SESSION",
+  "INVALID_EMAIL",
+  "COULD_NOT_SEND_SIGN_IN_LINK",
+  "COULD_NOT_SEND_UPGRADE_LINK",
+  "COULD_NOT_START_PLAYING",
+  "INVALID_VOLUME",
+  "INVALID_MUTE_STATE",
+  "INVALID_UI_LANG",
+  "SOMETHING_WENT_WRONG",
+] as const;
+
+export type ActionErrorCode = (typeof ACTION_ERROR_CODES)[number];

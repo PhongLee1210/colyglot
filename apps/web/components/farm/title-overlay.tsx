@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { STARTING_GOLD } from "@/lib/game/core/economy";
 import type { FarmWorldCard } from "@/lib/game/types";
+import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils/cn";
 
 export type TitleOverlayProps = {
@@ -39,18 +40,19 @@ export function TitleOverlay({
   onBegin,
   onSelectWorld,
 }: TitleOverlayProps) {
+  const t = useT();
   const activeWorld = worlds.find((world) => world.langKey === activeLangKey);
   const ctaLabel = !signedIn
-    ? "Play now"
+    ? t.title.playNow
     : !canBegin
-      ? "Pick a farm"
+      ? t.title.pickFarm
       : activeWorld?.started
-        ? "Continue"
-        : "Begin";
+        ? t.title.continueFarm
+        : t.title.begin;
 
   return (
     <section
-      aria-label="Welcome to Colyglot"
+      aria-label={t.title.ariaWelcome}
       data-testid="title-overlay"
       className="absolute inset-0 z-40 overflow-y-auto bg-[radial-gradient(120%_90%_at_50%_8%,rgb(0_0_0/0.15),rgb(0_0_0/0.62))] p-4 backdrop-blur-[3px]"
     >
@@ -58,14 +60,13 @@ export function TitleOverlay({
         <HeroMark />
         <div className="flex flex-col items-center gap-1">
           <h1 className="bg-gradient-to-b from-yellow-300 via-accent to-yellow-600 bg-clip-text font-display text-4xl font-extrabold tracking-tight text-transparent drop-shadow-[0_2px_8px_rgb(0_0_0/0.35)]">
-            Colyglot
+            {t.title.appName}
           </h1>
           <p className="text-sm font-semibold text-white/90">
-            Plant words, harvest memories.
+            {t.title.tagline}
           </p>
           <p className="max-w-xs text-xs leading-relaxed text-white/65">
-            Plant a word, tend it while it grows, and harvest it before it
-            wilts. Every review feeds your farm.
+            {t.title.blurb}
           </p>
         </div>
         <ProgressChip world={activeWorld} streak={streak} />
@@ -83,7 +84,7 @@ export function TitleOverlay({
             href="/sign-in"
             className="text-xs font-semibold text-white/70 underline-offset-4 transition hover:text-white hover:underline"
           >
-            Already have a farm? Sign in
+            {t.title.alreadyHaveFarm}
           </Link>
         ) : null}
         <WorldRail
@@ -124,13 +125,14 @@ function ProgressChip({
   world: FarmWorldCard | undefined;
   streak: number;
 }) {
+  const t = useT();
   if (!world) return null;
   return (
     <p
       data-testid="title-chip"
       className="glass-dark rounded-full px-4 py-1.5 text-xs font-bold text-white"
     >
-      {world.flag} {world.name} · {world.tierName}
+      {world.flag} {world.name} · {t.farmTiers[world.tierKey].name}
       {streak > 0 ? (
         <span className="text-white/70"> · 🔥 {streak}</span>
       ) : null}
@@ -151,10 +153,11 @@ function WorldRail({
   busyLangKey: string | null;
   onSelectWorld: (world: FarmWorldCard) => void;
 }) {
+  const t = useT();
   return (
     <div
       data-testid="title-rail"
-      aria-label="Choose your language"
+      aria-label={t.title.ariaChooseLanguage}
       className="flex w-full items-stretch gap-2 overflow-x-auto pb-1"
     >
       {worlds.map((world) => {
@@ -175,12 +178,12 @@ function WorldRail({
             <span className="text-xs font-bold">{world.name}</span>
             <span className="max-w-24 truncate text-[10px] text-fg-muted">
               {world.started
-                ? `${world.tierName} · 💰 ${world.gold}`
-                : `Start with ${STARTING_GOLD} 💰`}
+                ? `${t.farmTiers[world.tierKey].name} · ${t.title.goldAfterTier(world.gold)}`
+                : t.title.startWithGold(STARTING_GOLD)}
             </span>
             {active ? (
               <span className="rounded-full bg-primary/15 px-3 py-1 text-[10px] font-extrabold text-primary">
-                Here now
+                {t.title.hereNow}
               </span>
             ) : (
               <button
@@ -190,7 +193,7 @@ function WorldRail({
                 disabled={busyLangKey !== null}
                 onClick={() => onSelectWorld(world)}
               >
-                {busy ? "…" : world.started ? "Play" : "Start"}
+                {busy ? "…" : world.started ? t.common.play : t.common.start}
               </button>
             )}
           </div>
@@ -212,7 +215,9 @@ function WorldRail({
             🔒
           </span>
           <span className="text-xs font-bold">{lang.name}</span>
-          <span className="text-[10px] text-white/50">Coming soon</span>
+          <span className="text-[10px] text-white/50">
+            {t.title.comingSoon}
+          </span>
         </div>
       ))}
     </div>
@@ -220,10 +225,11 @@ function WorldRail({
 }
 
 function TitleLinks() {
-  const links = ["Guide", "Worlds", "Install", "Sound"];
+  const t = useT();
+  const links = t.title.links;
   return (
     <nav
-      aria-label="Title screen links"
+      aria-label={t.title.ariaLinks}
       className="mt-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-2 text-xs text-white/55"
     >
       {links.map((label, index) => (

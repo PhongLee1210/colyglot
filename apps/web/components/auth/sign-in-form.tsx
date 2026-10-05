@@ -35,7 +35,7 @@ export function SignInForm() {
         setSentTo(value.trim());
         setError(null);
       } else {
-        setError(result.error);
+        setError(t.errors[result.error]);
       }
     });
   }

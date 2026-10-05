@@ -1,6 +1,7 @@
 "use client";
 
 import { DUE_SWEEP_LIMIT, type FarmWorldSnapshot } from "@/lib/game/types";
+import { useT } from "@/lib/i18n/use-t";
 
 import { DockButton } from "./controls";
 
@@ -17,29 +18,30 @@ export function ActionDock({
   onOpenNursery: () => void;
   onOpenHarvest: () => void;
 }) {
+  const t = useT();
   const dueBadge =
     snapshot.dueCount > DUE_SWEEP_LIMIT
       ? `${DUE_SWEEP_LIMIT}+`
       : snapshot.dueCount;
   return (
     <nav
-      aria-label="Farm actions"
+      aria-label={t.dock.ariaActions}
       className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-30 flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 gap-2 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <DockButton
         icon="🌰"
-        label="Seeds"
+        label={t.dock.seeds}
         testId="dock-seeds"
         disabled={disabled}
         onClick={onOpenSeeds}
       />
       <DockButton
         icon="🌱"
-        label="Nursery"
+        label={t.dock.nursery}
         testId="dock-nursery"
         ariaLabel={
           snapshot.freshCount > 0
-            ? `Nursery, ${snapshot.freshCount} new seedlings`
+            ? t.dock.ariaNursery(snapshot.freshCount)
             : undefined
         }
         badge={snapshot.freshCount}
@@ -49,11 +51,11 @@ export function ActionDock({
       />
       <DockButton
         icon="🧺"
-        label="Harvest"
+        label={t.dock.harvest}
         testId="dock-harvest"
         ariaLabel={
           snapshot.dueCount > 0
-            ? `Harvest, ${snapshot.dueCount} ready`
+            ? t.dock.ariaHarvest(snapshot.dueCount)
             : undefined
         }
         badge={dueBadge}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/i18n/use-t";
+
 const LEAVES = ["🍃", "🌾", "✨"];
 
 // Coins fly toward the HUD gold chip's fixed position (top-right); the
@@ -18,11 +20,12 @@ export function HarvestCelebration({
   reviewed: number;
   onDone: () => void;
 }) {
+  const t = useT();
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Harvest celebration"
+      aria-label={t.harvest.ariaCelebration}
       className="glass fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 p-6 text-center text-fg"
     >
       <div
@@ -46,19 +49,21 @@ export function HarvestCelebration({
         <div className="text-5xl" aria-hidden="true">
           🧺✨
         </div>
-        <h1 className="text-xl font-extrabold">Harvest complete!</h1>
+        <h1 className="text-xl font-extrabold">{t.harvest.celebrationTitle}</h1>
         <p
           data-testid="harvest-gold"
           className="text-3xl font-extrabold text-green-700 dark:text-green-400"
         >
-          +{claim.goldAwarded} gold
+          {t.harvest.goldAwarded(claim.goldAwarded)}
         </p>
         <p className="text-sm text-fg-muted">
-          {claim.cardsHarvested} crops harvested · {reviewed} words reviewed
+          {t.harvest.celebrationTally(claim.cardsHarvested, reviewed)}
         </p>
         <p className="text-sm font-semibold">
-          🔥 Streak: {claim.streak} day{claim.streak === 1 ? "" : "s"}
-          {claim.streakBonus > 0 ? ` · +${claim.streakBonus} sweep bonus` : ""}
+          {t.harvest.celebrationStreak(claim.streak)}
+          {claim.streakBonus > 0
+            ? t.harvest.celebrationSweepBonus(claim.streakBonus)
+            : ""}
         </p>
         {Array.from({ length: 6 }, (_, i) => (
           <span
@@ -80,7 +85,7 @@ export function HarvestCelebration({
           className="mt-2 min-h-11 rounded-full bg-primary px-6 py-2 font-bold text-on-primary transition hover:bg-primary-700 active:bg-primary-800 dark:hover:bg-primary-500"
           onClick={onDone}
         >
-          Back to farm
+          {t.common.backToFarm}
         </button>
       </div>
     </div>
